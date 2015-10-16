@@ -40,7 +40,7 @@ if __name__ == "__main__":
     for line in main_lines:
         if line:
             if line[ 0 ] == '<':
-                state_name, regex = line[ 1: ].split( '>' )
+                state_name, regex = line[ 1: ].split( '>', maxsplit = 1 )
                 current_transition = { 'name' : state_name, 'regex' : preprocess_regex( regex, regexes ), 'newline' : False, 'new_state' : state_name }
                 line_count = 0
             elif line_count == 2:
@@ -62,6 +62,6 @@ if __name__ == "__main__":
 
             line_count += 1
 
-    definitions = { 'states' : states_list, 'transitions' : transitions }
+    definitions = { 'start_state' : states_list[ 0 ], 'transitions' : transitions }
 
     pickle.dump( definitions, open( 'temporary_definitions.bin', 'wb' ) )
