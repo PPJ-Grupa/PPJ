@@ -48,7 +48,7 @@ if __name__ == "__main__":
             elif line.startswith( 'NOVI_REDAK' ):
                 current_transition[ 'newline' ] = True
             elif line.startswith( 'UDJI_U_STANJE' ):
-                current_transition[ 'new_state' ] = line[ 13: ]
+                current_transition[ 'new_state' ] = line[ 14: ]
             elif line.startswith( 'VRATI_SE' ):
                 current_transition[ 'return_to' ] = int( line[ 8: ] )
             elif line[ 0 ] == '}':
@@ -62,4 +62,6 @@ if __name__ == "__main__":
 
             line_count += 1
 
-    pickle.dump( transitions, open( 'temporary_definitions.bin', 'wb' ) )
+    definitions = { 'states' : states_list, 'transitions' : transitions }
+
+    pickle.dump( definitions, open( 'temporary_definitions.bin', 'wb' ) )

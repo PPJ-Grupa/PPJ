@@ -1,7 +1,5 @@
 from abc import ABCMeta, abstractmethod
-
 from utils import tail
-
 
 class Regex:
     """A custom regex implementation via an e-NKA finite state machine.
@@ -42,10 +40,15 @@ class Regex:
         slash_precedeed = False
         for char in pattern:
             if slash_precedeed:
-                symbols.append( Symbol( char, False ) )
+                if char == 'n': symbols.append( Symbol( '\n', False ) )
+                elif char == 't': symbols.append( Symbol( '\t', False ) )
+                else: symbols.append( Symbol( char, False ) )
                 slash_precedeed = False
             elif char == '\\':
                 slash_precedeed = True
+            elif char == '$':
+                symbols.append( Symbol( '\\$', False ) )
+                slash_precedeed = False
             else:
                 symbols.append( Symbol( char, Regex._is_special( char ) ) )
                 slash_precedeed = False
@@ -142,10 +145,10 @@ class Concat( Buildable ):
     def build( self ):
         first_start, first_end = self.first.build()
         second_start, second_end = self.second.build()
-        start = Node( ( first_start, '$' ) )
+        start = Node( ( first_start, '\\$' ) )
         end = Node()
-        first_end.add_link( ( second_start, '$' ) )
-        second_end.add_link( ( end, '$' ) )
+        first_end.add_link( ( second_start, '\\$' ) )
+        second_end.add_link( ( end, '\\$' ) )
         return start, end
 
 
@@ -159,10 +162,10 @@ class Kleene( Buildable ):
 
     def build( self ):
         item_start, item_end = self.item.build()
-        start = Node( ( item_start, '$' ) )
-        end = Node( ( start, '$' ) )
-        start.add_link( ( end, '$' ) )
-        item_end.add_link( ( end, '$' ) )
+        start = Node( ( item_start, '\\$' ) )
+        end = Node( ( start, '\\$' ) )
+        start.add_link( ( end, '\\$' ) )
+        item_end.add_link( ( end, '\\$' ) )
         return start, end
 
 class Or( Buildable ):
@@ -177,10 +180,10 @@ class Or( Buildable ):
     def build( self ):
         left_start, left_end = self.left.build()
         right_start, right_end = self.right.build()
-        start = Node( ( left_start, '$' ), ( right_start, '$' ) )
+        start = Node( ( left_start, '\\$' ), ( right_start, '\\$' ) )
         end = Node()
-        left_end.add_link( ( end, '$' ) )
-        right_end.add_link( ( end, '$' ) )
+        left_end.add_link( ( end, '\\$' ) )
+        right_end.add_link( ( end, '\\$' ) )
         return start, end
 
 
@@ -205,7 +208,7 @@ class Node:
             node = stack.pop()
             surrounding.add( node )
             for link_node, link_char in node.links:
-                if link_char == '$' and link_node not in surrounding:
+                if link_char == '\\$' and link_node not in surrounding:
                     stack.append( link_node )
         return surrounding
 
