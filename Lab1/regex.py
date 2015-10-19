@@ -206,6 +206,7 @@ class Node:
         stack = [ self ]
         while stack:
             node = stack.pop()
+            if node in surrounding: continue
             surrounding.add( node )
             for link_node, link_char in node.links:
                 if link_char == '\\$' and link_node not in surrounding:
