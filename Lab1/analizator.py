@@ -3,8 +3,6 @@ import sys
 
 from regex import *
 
-# TODO: Unknown errors, doesn't do what it should
-
 if __name__ == '__main__':
     definitions = pickle.load( open( 'temporary_definitions.bin', 'rb' ) )
     file_name = sys.argv[ 1 ]
@@ -30,12 +28,12 @@ if __name__ == '__main__':
                     possible_transitions.append( ( len( matched ), -index, matched, remains, transition ) )
 
             if not possible_transitions:
-                # print( 'Error at line', line_number, state, '<{}>'.format( contents.split( '\n', maxsplit = 1 )[ 0 ] ), file = sys.stderr )
+                print( 'Error at line', line_number, state, '<{}>'.format( contents.split( '\n', maxsplit = 1 )[ 0 ] ), file = sys.stderr )
                 contents = contents[ 1: ]
             else:
                 _, _, matched, remains, transition = max( possible_transitions )
 
-                if transition[ 'return_to' ]:
+                if transition[ 'return_to' ] is not None:
                     matched, remains = matched[ :transition[ 'return_to' ] ], matched[ transition[ 'return_to' ]: ] + remains
 
                 if transition[ 'lexeme' ]:
@@ -47,7 +45,5 @@ if __name__ == '__main__':
                 state = transition[ 'new_state' ]
                 contents = remains
 
-        print( transitions[ 'S_string' ] )
-
-        # for lexeme, line_number, token in lexemes:
-        #     print( lexeme, line_number, token )
+        for lexeme, line_number, token in lexemes:
+            print( lexeme, line_number, token )
