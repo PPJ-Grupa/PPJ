@@ -30,7 +30,7 @@ if __name__ == '__main__':
                     possible_transitions.append( ( len( matched ), -index, matched, remains, transition ) )
 
             if not possible_transitions:
-                print( 'Error at line', line_number, state, '<{}>'.format( contents.split( '\n', maxsplit = 1 )[ 0 ] ), file = sys.stderr )
+                # print( 'Error at line', line_number, state, '<{}>'.format( contents.split( '\n', maxsplit = 1 )[ 0 ] ), file = sys.stderr )
                 contents = contents[ 1: ]
             else:
                 _, _, matched, remains, transition = max( possible_transitions )
