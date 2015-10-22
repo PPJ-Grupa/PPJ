@@ -19,13 +19,8 @@ if __name__ == '__main__':
 
         lexemes = []
         line_number = 1
-        did = False
 
         while contents:
-            if line_number == 12 and not did:
-                print( '12:', contents.split( '\n', maxsplit = 1 )[ 0 ] )
-                did = True
-
             possible_transitions = []
             for index, transition in enumerate( transitions[ state ] ):
                 matched, remains = transition[ 'parsed_regex' ].match( contents )
