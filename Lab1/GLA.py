@@ -64,4 +64,4 @@ if __name__ == "__main__":
 
     definitions = { 'start_state' : states_list[ 0 ], 'transitions' : transitions }
 
-    pickle.dump( definitions, open( 'temporary_definitions.bin', 'wb' ) )
+    pickle.dump( definitions, open( 'analizator/temporary_definitions.bin', 'wb' ) )

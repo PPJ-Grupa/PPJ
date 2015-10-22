@@ -4,7 +4,7 @@ import sys
 from regex import *
 
 if __name__ == '__main__':
-    definitions = pickle.load( open( 'temporary_definitions.bin', 'rb' ) )
+    definitions = pickle.load( open( 'analizator/temporary_definitions.bin', 'rb' ) )
     file_name = sys.argv[ 1 ]
 
     state = definitions[ 'start_state' ]
