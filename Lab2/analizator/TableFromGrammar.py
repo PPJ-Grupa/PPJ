@@ -1,5 +1,5 @@
 __author__ = 'Mihael'
-
+import copy
 #ona prosirenja za lr1 parser nisu ni pokusana biti implementirana (stavke {a,b})
 
 #after we bild e-nka, then dka should come
@@ -7,12 +7,20 @@ class DKAState:
     def __init__ (self, num):
         self.num = num
         self.dict = {} #neighbours preko A do stanja 2 npr.
-        self.productions = []
+        self.states = []
     def addNeighbour(self, letter, state):
+        # if it is nka can have more neighbours under same key (unfortionately)
         self.dict[letter] = state
 
-    def addProduction(self, production):
-        self.productions.append(production)
+    def getNeighbour (self, letter):
+        if letter in self.dict:
+            return self.dict[letter]
+        else:
+            return -1
+
+
+    def addState(self, state):
+        self.states.append(state)
 
 
 #grammar, kraj niza ~
@@ -47,23 +55,28 @@ class State:
         if self.neighbour == -1:
             return "~" #ugl nije
         else:
-            return self.production[0]
+            return self.production[1][self.pointer]
 
 
 class MakeProducitons:
 
-    def __init__ (self, productions, starts_with):
+    def __init__ (self, productions, starts_with, zavrsni, nezavrsni, pocetnoStanje):
         self.listOfStates = []
         self.dictionaryOfStates = {}
         self.num = 0
         self.productions = productions
         self.starts_with = starts_with
+        self.zavrsni = zavrsni
+        self.nezavrsni = nezavrsni
+        self.pocetnoStanje = pocetnoStanje
         self.info_production = {} # for production and pointer gives equivalent state number,
         self.call_producitons() #dakle rijesili smo konstrukciju u konstruktoru
         self.listOfDKAStates = []
         self.add_epsilon_transformations()
         self.add_missing_stavke() # poslijedica toga da nemamo one s direktnim prijelazima stavke popunjene
         self.convert_to_DKA()
+        self.finalTable = {}
+        self.give_table_from_DKAStates()
 
 
     def __str__(self):
@@ -136,25 +149,27 @@ class MakeProducitons:
         listOfLists = []
 
         for i in range(0, self.num):
-
             setOfEpsilons = set()
             setOfEpsilons.add(i)
+            print ("eps", i, self.listOfStates[i].epsilonNeighbours)
             self.giveSetOfEpsilons (i, setOfEpsilons)
-            listOfLists.append(setOfEpsilons)
+            print (setOfEpsilons)
 
+            listOfLists.append(copy.deepcopy(setOfEpsilons))
         size = len(listOfLists)
+
 
         print("ENKA", size)
 
-        totalListOfLists = []
 
         for i in range(0, size):
             for j in range(i+1, size):
                 if len(listOfLists[i]) > len(listOfLists[j]):
-                    prviS = listOfLists[i]
-                    listOfLists[i] = listOfLists[j]
+                    prviS = set(listOfLists[i])
+                    listOfLists[i] = set(listOfLists[j])
                     listOfLists[j] = prviS
 
+        totalListOfLists = []
         for i in range(0, size):
             bool = True
             for j in range(i+1, size):
@@ -165,24 +180,45 @@ class MakeProducitons:
                 totalListOfLists.append( list (listOfLists[i]) )
 
         numberOfStates = len(totalListOfLists)
-
         print (totalListOfLists)
+
+
+        # samo zelimo da nam je pocetno stanje prvo u finalListOfLists
+        finalListOfLists = []
+        koji = -1
+        for i in range(0, numberOfStates):
+            # to je start stanje
+            if 0 in totalListOfLists[i]:
+                koji = i
+                finalListOfLists.append(list(totalListOfLists[i]))
+                break
+        for i in range(0, numberOfStates):
+            if i != koji:
+                finalListOfLists.append(list(totalListOfLists[i]))
+
+
+        print (finalListOfLists)
         print ("DKA", numberOfStates)
 
         for i in range(numberOfStates):
             self.listOfDKAStates.append(DKAState(i))
 
         i = 0
-        for lista in totalListOfLists:
+        for lista in finalListOfLists:
             for state in lista:
                 statet = self.listOfStates[state]
+                self.listOfDKAStates[i].addState(statet)
                 neighbour = statet.get_direct_neighbour()
                 letter = statet.get_letter()
+               # print ("tu", statet.production[0], statet.production[1], statet.pointer, neighbour)
                 if neighbour != -1:
-                    for j in range(i+1, len(totalListOfLists)):
-                        otherList = totalListOfLists[j]
+                    #print (i+1), tu je bilo nezgodno skuzit da treba po svima
+                    for j in range(0, numberOfStates):
+                        otherList = finalListOfLists[j]
                         if neighbour in otherList:
                             self.listOfDKAStates[i].addNeighbour(letter, j)
+                            #print ("gore", i, letter, j)
+
             i+=1
 
 
@@ -205,6 +241,38 @@ class MakeProducitons:
             self.giveSetOfEpsilons(num, allEpsilons)
 
 
+    def give_table_from_DKAStates(self):
+        for i in range(len(self.listOfDKAStates)):
+            self.finalTable[i] = {}
+        i = 0
+        for dkaState in self.listOfDKAStates:
+            for state in dkaState.states:
+
+                if state.pointer == len(state.production[1]) and state.production[0] == self.pocetnoStanje:
+                    #treba jos provjerit da je zavrsni negdje nesto
+                    print ("pocetno_prihvatam")
+                    self.finalTable[i][state.production[0]] = ("A") #kao prihvati
+                elif state.production[1][0] == '$' or state.pointer == len(state.production[1]):
+                    j=0
+                    for stavka in state.stavke:
+                        self.finalTable[i][stavka] = ("R", j, state.production[0])
+                        j+=1
+                elif state.pointer != len(state.production[1]):
+                    letter = state.get_letter()
+                    next_state = dkaState.getNeighbour(letter)
+
+                    if next_state != -1:
+                        if letter in self.zavrsni: # ovo je prema onom u SA redundantno, al eto
+                            self.finalTable[i][letter] = ("S", next_state)
+                        elif letter in self.nezavrsni:
+                            self.finalTable[i][letter] = ("G", next_state)
+
+
+            i+=1
+        print (self.finalTable)
+
+
+
 
 
 
@@ -218,4 +286,7 @@ productions = {'<S>':[['<A>']], '<A>': [['<B>', '<A>'], ['$']], '<B>': [['a', '<
 starts_with = {'<B>': ['b', 'a'], '<A>': ['$', 'b', 'a'], '<S>' : ['$', 'b', 'a'],
                'a' : ['a'], 'b':['b'], '$' : ['$']}
 
-maker = MakeProducitons(productions, starts_with)
+zavrsni = {'a', 'b', '$'}
+nezavrsni = {'<S>', '<A>', '<B>'}
+
+maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, '<S>')
