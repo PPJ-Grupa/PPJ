@@ -1,6 +1,6 @@
 __author__ = 'Mihael'
 
-#ona prosirenja za lr1 parser nisu ni pokušana biti implementirana (stavke {a,b})
+#ona prosirenja za lr1 parser nisu ni pokusana biti implementirana (stavke {a,b})
 
 #after we bild e-nka, then dka should come
 class DKAState:
@@ -28,7 +28,7 @@ class State:
         self.num = num # broj 0,1, koje stanje po redu
         self.production = production # tuple (A, abc) ako A->abc
         self.pointer = pointer
-        self.list = [] # one stavke tipa {a, b}
+        self.stavke = set() # one stavke tipa {a, b}
         self.neighbour = -1
         self.productionLength = len(production[1])
         self.epsilonNeighbours = []
@@ -37,8 +37,8 @@ class State:
 
     def add_direct_neighbour(self):
         #dodajemo direktnog osim ak nije epsilon prijelaz u pitanju
-        if self.num != self.productionLength and not(self.production[1] == "$"):
-            neighbour = self.num + 1
+        if self.pointer != self.productionLength and not(self.production[1][0] == '$'):
+            self.neighbour = self.num + 1
 
     def get_direct_neighbour(self):
         return self.neighbour
@@ -52,15 +52,17 @@ class State:
 
 class MakeProducitons:
 
-    def __init__ (self, productions):
+    def __init__ (self, productions, starts_with):
         self.listOfStates = []
         self.dictionaryOfStates = {}
         self.num = 0
         self.productions = productions
+        self.starts_with = starts_with
         self.info_production = {} # for production and pointer gives equivalent state number,
         self.call_producitons() #dakle rijesili smo konstrukciju u konstruktoru
         self.listOfDKAStates = []
         self.add_epsilon_transformations()
+        self.add_missing_stavke() # poslijedica toga da nemamo one s direktnim prijelazima stavke popunjene
         self.convert_to_DKA()
 
 
@@ -68,9 +70,14 @@ class MakeProducitons:
          return "foo"
 
     def stateFromProduciton(self, production, pointer):
+
         state = State (production, pointer, self.num)
         stringDesneStrane = ''.join(production[1])
         stringLijeveStrane = production[0]
+
+        #no point in this epislon transition
+        if stringLijeveStrane == '$' and pointer == 1:
+            return
         # debug print ("start", stringDesneStrane, pointer, self.num)
         if pointer == 0:
             self.info_production[(stringLijeveStrane, stringDesneStrane)] = {pointer : self.num}
@@ -94,16 +101,35 @@ class MakeProducitons:
                 continue
             letter = myrightSide[state.pointer]
 
+            if state.num == 0:
+                state.stavke.add('$')
 
             if letter in self.productions:
+
+                if state.pointer + 1 == len(myrightSide):
+                   prvi_znak_od_zapocinje = '$'
+                else:
+                    prvi_znak_od_zapocinje = myrightSide[state.pointer + 1]
+
+                pocetci = self.starts_with[prvi_znak_od_zapocinje]
+
+
                 for rightSide in self.productions[letter]:
                     brightSide = ''.join(rightSide)
                     # debug print (state.num,  self.info_production[brightSide][0])
                     # za svaku desnu stranu
+                    curr_neighnour = self.info_production[(letter, brightSide)][0]
+                    self.listOfStates[curr_neighnour].stavke |= set(pocetci)
 
-                    state.epsilonNeighbours.append(self.info_production[(letter, brightSide)][0])
+                    state.epsilonNeighbours.append(curr_neighnour)
 
-    # i think i acctually managed to convert it to e-nka, so everything
+    def add_missing_stavke(self):
+        for state in self.listOfStates:
+            if state.neighbour != -1:
+                self.listOfStates[state.neighbour].stavke |= state.stavke
+
+
+    # i think i acctually managed to convert it to nka, so everything
     # after we print dka size, this function does not make sense
     # since i forgot it is only nka, not dka
     def convert_to_DKA(self):
@@ -188,7 +214,8 @@ class MakeProducitons:
 
 
 
-productions = {'<A>': [['<B>', '<A>'], ['$']], '<B>': [['a', '<B>'], ['b']]}
-starts_with = {'<B>': ['b', 'a'], '<A>': ['$', 'b', 'a']}
+productions = {'<S>':[['<A>']], '<A>': [['<B>', '<A>'], ['$']], '<B>': [['a', '<B>'], ['b']]}
+starts_with = {'<B>': ['b', 'a'], '<A>': ['$', 'b', 'a'], '<S>' : ['$', 'b', 'a'],
+               'a' : ['a'], 'b':['b'], '$' : ['$']}
 
-maker = MakeProducitons(productions)
+maker = MakeProducitons(productions, starts_with)
