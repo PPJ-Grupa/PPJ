@@ -161,7 +161,7 @@ class MakeProducitons:
           #  print (setOfEpsilons)
             noviSet = set()
             noviSet |= self.allEpsilons
-            print (noviSet)
+            # print (noviSet)
             listOfLists.append(noviSet)
             self.allEpsilons.clear()
 
@@ -187,7 +187,7 @@ class MakeProducitons:
                 totalListOfLists.append( list (listOfLists[i]) )
 
         numberOfStates = len(totalListOfLists)
-        print (totalListOfLists)
+        # print (totalListOfLists)
 
 
         # samo zelimo da nam je pocetno stanje prvo u finalListOfLists
@@ -204,7 +204,7 @@ class MakeProducitons:
                 finalListOfLists.append(list(totalListOfLists[i]))
 
 
-        print (finalListOfLists)
+       # print (finalListOfLists)
         print ("DKA", numberOfStates)
 
         for i in range(numberOfStates):
@@ -257,13 +257,15 @@ class MakeProducitons:
 
                 if state.pointer == len(state.production[1]) and state.production[0] == self.pocetnoStanje:
                     #treba jos provjerit da je zavrsni negdje nesto
-                    print ("pocetno_prihvatam")
-                    self.finalTable[i][state.production[0]] = ("A") #kao prihvati
+                    #
+                    # print ("pocetno_prihvatam")
+                    self.finalTable[i]['$'] = ("A") #kao prihvati
                 elif state.production[1][0] == '$' or state.pointer == len(state.production[1]):
                     j=0
                     for stavka in state.stavke:
-                        self.finalTable[i][stavka] = ("R", len(state.production[1]), state.production[0])
-                        j+=1
+                         self.finalTable[i][stavka] = ("R",
+                         0 if state.production[1][0] == '$' else len(state.production[1]), state.production[0])
+                         j+=1
                 elif state.pointer != len(state.production[1]):
                     letter = state.get_letter()
                     next_state = dkaState.getNeighbour(letter)
@@ -286,14 +288,22 @@ class MakeProducitons:
 
 
 
+## S -> AA
+## A -> aA | b
 
 
+#productions = {'<S>':[['<A>']], '<A>': [['<B>', '<A>'], ['$']], '<B>': [['a', '<B>'], ['b']]}
+#starts_with = {'<B>': ['b', 'a'], '<A>': ['$', 'b', 'a'], '<S>' : ['$', 'b', 'a'],
+#              'a' : ['a'], 'b':['b'], '$' : ['$']}
 
-productions = {'<S>':[['<A>']], '<A>': [['<B>', '<A>'], ['$']], '<B>': [['a', '<B>'], ['b']]}
-starts_with = {'<B>': ['b', 'a'], '<A>': ['$', 'b', 'a'], '<S>' : ['$', 'b', 'a'],
-               'a' : ['a'], 'b':['b'], '$' : ['$']}
+#zavrsni = {'a', 'b', '$'}
+#nezavrsni = {'<S>', '<A>', '<B>'}
 
+productions = {'<X>':[['<S>']], '<S>':[['<A>', '<A>']], '<A>' : [ ['a', '<A>'], ['b']]}
+starts_with = {'<X>': ['a','b'], '<S>':['a', 'b'], '<A>' : ['a', 'b'], 'a':['a'], 'b':['b'], '$':['$']}
 zavrsni = {'a', 'b', '$'}
-nezavrsni = {'<S>', '<A>', '<B>'}
+nezavrsni = {'<X>', '<S>', '<A>'}
 
-maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, '<S>')
+
+
+maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, '<X>')
