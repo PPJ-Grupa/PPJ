@@ -103,10 +103,17 @@ class MakeProducitons:
 
 
     def call_producitons(self):
+        production = self.pocetnoStanje
+        for rightSide in self.productions[production]:
+                for i in range(len(rightSide) + 1):
+                     self.stateFromProduciton((production, rightSide), i)
         for production in self.productions:
+            if production == self.pocetnoStanje:
+                continue
             for rightSide in self.productions[production]:
                 for i in range(len(rightSide) + 1):
                      self.stateFromProduciton((production, rightSide), i)
+
 
     def add_epsilon_transformations(self):
         for state in self.listOfStates:
