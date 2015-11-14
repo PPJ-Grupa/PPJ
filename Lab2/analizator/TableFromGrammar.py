@@ -305,5 +305,4 @@ zavrsni = {'a', 'b', '$'}
 nezavrsni = {'<X>', '<S>', '<A>'}
 
 
-
 maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, '<X>')
