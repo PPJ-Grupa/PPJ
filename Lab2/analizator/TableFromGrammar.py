@@ -101,7 +101,6 @@ class MakeProducitons:
         self.num+=1
 
 
-
     def call_producitons(self):
         production = self.pocetnoStanje
         for rightSide in self.productions[production]:
