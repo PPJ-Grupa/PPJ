@@ -76,7 +76,7 @@ class MakeProducitons:
         stringLijeveStrane = production[0]
 
         #no point in this epislon transition
-        if stringLijeveStrane == '$' and pointer == 1:
+        if stringDesneStrane == '$' and pointer == 1:
             return
         # debug print ("start", stringDesneStrane, pointer, self.num)
         if pointer == 0:
