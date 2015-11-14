@@ -39,7 +39,7 @@ class State:
         self.stavke = set() # one stavke tipa {a, b}
         self.neighbour = -1
         self.productionLength = len(production[1])
-        self.epsilonNeighbours = []
+        self.epsilonNeighbours = set()
         self.add_direct_neighbour()
 
 
@@ -61,6 +61,7 @@ class State:
 class MakeProducitons:
 
     def __init__ (self, productions, starts_with, zavrsni, nezavrsni, pocetnoStanje):
+        self.allEpsilons = set()
         self.listOfStates = []
         self.dictionaryOfStates = {}
         self.num = 0
@@ -133,8 +134,7 @@ class MakeProducitons:
                     # za svaku desnu stranu
                     curr_neighnour = self.info_production[(letter, brightSide)][0]
                     self.listOfStates[curr_neighnour].stavke |= set(pocetci)
-
-                    state.epsilonNeighbours.append(curr_neighnour)
+                    state.epsilonNeighbours.add(curr_neighnour)
 
     def add_missing_stavke(self):
         for state in self.listOfStates:
@@ -149,16 +149,17 @@ class MakeProducitons:
         listOfLists = []
 
         for i in range(0, self.num):
-            setOfEpsilons = set()
-            setOfEpsilons.add(i)
-            print ("eps", i, self.listOfStates[i].epsilonNeighbours)
-            self.giveSetOfEpsilons (i, setOfEpsilons)
-            print (setOfEpsilons)
+            self.allEpsilons.add(i)
+           # print ("eps", i, self.listOfStates[i].epsilonNeighbours)
+            self.giveSetOfEpsilons (i)
+          #  print (setOfEpsilons)
+            noviSet = set()
+            noviSet |= self.allEpsilons
+            print (noviSet)
+            listOfLists.append(noviSet)
+            self.allEpsilons.clear()
 
-            listOfLists.append(copy.deepcopy(setOfEpsilons))
         size = len(listOfLists)
-
-
         print("ENKA", size)
 
 
@@ -227,18 +228,18 @@ class MakeProducitons:
 
 
     #state je integer
-    def giveSetOfEpsilons(self, state, allEpsilons):
-        size = len(allEpsilons)
+    def giveSetOfEpsilons(self, state):
+        size = len(self.allEpsilons)
         for num in self.listOfStates[state].epsilonNeighbours:
-            allEpsilons.add(num)
+            self.allEpsilons.add(num)
         #we look if size has changed
-        if size == len(allEpsilons):
+        if size == len(self.allEpsilons):
             return
 
         for num in self.listOfStates[state].epsilonNeighbours:
             if num == state:
                 continue
-            self.giveSetOfEpsilons(num, allEpsilons)
+            self.giveSetOfEpsilons(num)
 
 
     def give_table_from_DKAStates(self):
@@ -255,7 +256,7 @@ class MakeProducitons:
                 elif state.production[1][0] == '$' or state.pointer == len(state.production[1]):
                     j=0
                     for stavka in state.stavke:
-                        self.finalTable[i][stavka] = ("R", j, state.production[0])
+                        self.finalTable[i][stavka] = ("R", len(state.production[1]), state.production[0])
                         j+=1
                 elif state.pointer != len(state.production[1]):
                     letter = state.get_letter()
