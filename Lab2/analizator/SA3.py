@@ -14,7 +14,7 @@ import json
 ## A -> aA | b
 ## LR(0) example parsing table
 ## error handling je zesce nastiman na ovaj primjer
-LRTable = {0: {'b': ('S', 4), 'a': ('S', 5), '<A>': ('G', 1), '$': ('R', 0, '<A>'), '<B>': ('G', 6)}, 1: {'$': 'A'}, 2: {'$': ('R', 2, '<A>')}, 3: {'b': ('R', 2, '<B>'), '$': ('R', 2, '<B>'), 'a': ('R', 2, '<B>')}, 4: {'b': ('R', 1, '<B>'), '$': ('R', 1, '<B>'), 'a': ('R', 1, '<B>')}, 5: {'b': ('S', 4), 'a': ('S', 5), '<B>': ('G', 3)}, 6: {'b': ('S', 4), 'a': ('S', 5), '<A>': ('G', 2), '$': ('R', 0, '<A>'), '<B>': ('G', 6)}
+LRTable = {0: {'<A>': ('G', 1), '$': ('R', 0, '<A>'), 'a': ('S', 4), 'b': ('S', 3), '<B>': ('G', 2)}, 1: {'$': 'A'}, 2: {'<A>': ('G', 5), '$': ('R', 0, '<A>'), 'a': ('S', 4), 'b': ('S', 3), '<B>': ('G', 2)}, 3: {'$': ('R', 1, '<B>'), 'b': ('R', 1, '<B>'), 'a': ('R', 1, '<B>')}, 4: {'<B>': ('G', 6), 'b': ('S', 3), 'a': ('S', 4)}, 5: {'$': ('R', 2, '<A>')}, 6: {'$': ('R', 2, '<B>'), 'b': ('R', 2, '<B>'), 'a': ('R', 2, '<B>')}
 
 , "sync":[";"]}
 
@@ -39,7 +39,7 @@ def advance(sym):
                  ssymbols = stack[-2*n:-1:2]
                  stack = stack[:-2*n]
             else :
-                ssymbols = []
+                ssymbols = ['$'] #not sure if best way
 
             stcur = stack[-1]
 
@@ -64,10 +64,12 @@ def advance(sym):
 
 def pp(h, i = 0):
     print (" "*i + str(h[0]))
+    if len(h) < 2: # not sure if best way
+        return
     for l in h[1]:
         pp(l, i + 1)
 
-inp = iter("aaab$")
+inp = iter("abaab$")
 for c in inp:
     try:
         advance(c)
