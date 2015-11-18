@@ -1,8 +1,5 @@
 __author__ = 'Mihael'
 import copy
-#ona prosirenja za lr1 parser nisu ni pokusana biti implementirana (stavke {a,b})
-
-#after we bild e-nka, then dka should come
 
 
 
@@ -357,15 +354,6 @@ class MakeProducitons:
 
 
 
-
-
-
-
-
-
-
-
-
     def give_table_from_DKAStates(self):
         for i in range(len(self.listOfDKAStates)):
             self.finalTable[i] = {}
@@ -398,10 +386,6 @@ class MakeProducitons:
 
             i+=1
         print (self.finalTable)
-
-
-
-
 
 
 
