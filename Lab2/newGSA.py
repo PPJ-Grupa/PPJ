@@ -5,7 +5,7 @@ import json
 from collections import defaultdict
 from functools import lru_cache, reduce
 import operator
-
+import pickle
 # imamo sve starts_with, koji simbol sad obradujem, s kim sam pozvao, koje sam sve dubine dosegao, produkcije
 def startsWith(SW, symbol, original, whoCalled, productions):
 
@@ -104,8 +104,8 @@ for line in lines:
         vv = line
 
 SW = {}
-V.add('%')
-P['%'] = [[start_symbol]]
+V.add('<%>')
+P['<%>'] = [[start_symbol]]
 
 for el in V:
     SW[el] = set()
@@ -157,6 +157,9 @@ print("sinkronizacija ", Syn)
 print ("produkcije: ", P)
 print ("starts_with: ", SW)
 
+definitions = { "nezavrsni" : V, "terminali" : T, "sinkronizacija": Syn, "produkcije":P, "starts_with": SW }
+
+pickle.dump( definitions, open( 'analizator/temporary_definitions.bin', 'wb' ) )
 
 #SW2 = {key : list(startsWith(key)) for key in V}
 #SW = SW1 + SW2
