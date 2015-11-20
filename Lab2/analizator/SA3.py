@@ -2,21 +2,22 @@ __author__ = 'Mihael'
 #!/usr/bin/env python3
 
 import fileinput
-import json
-# R -> reduciraj, S -> shift dalje, G -> tablica novo stanje, A -> prihvati
-##
-# ("R", koliko simbol konzumiram, koji simbol stavljam, zaKojestanje)
-# ("S", sljedece stanje)
-# ("A")
-# ("G", stanje)
-## Example language:
-## S -> AA
-## A -> aA | b
-## LR(0) example parsing table
-## error handling je zesce nastiman na ovaj primjer
-LRTable = {0: {'<A>': ('G', 1), '$': ('R', 0, '<A>'), 'a': ('S', 4), 'b': ('S', 3), '<B>': ('G', 2)}, 1: {'$': 'A'}, 2: {'<A>': ('G', 5), '$': ('R', 0, '<A>'), 'a': ('S', 4), 'b': ('S', 3), '<B>': ('G', 2)}, 3: {'$': ('R', 1, '<B>'), 'b': ('R', 1, '<B>'), 'a': ('R', 1, '<B>')}, 4: {'<B>': ('G', 6), 'b': ('S', 3), 'a': ('S', 4)}, 5: {'$': ('R', 2, '<A>')}, 6: {'$': ('R', 2, '<B>'), 'b': ('R', 2, '<B>'), 'a': ('R', 2, '<B>')}
+import pickle
+import PPJ.Lab2.analizator.TableFromGrammar
 
-, "sync":[";"]}
+
+
+definitions = pickle.load( open( 'temporary_definitions.bin', 'rb' ) )
+
+V = definitions['nezavrsni']
+T = definitions['terminali']
+Syn = definitions['sinkronizacija']
+P = definitions['produkcije']
+SW = definitions['starts_with']
+
+maker = PPJ.Lab2.analizator.TableFromGrammar2.MakeProducitons(P, SW, T, V, '<%>')
+LRTable = maker.give_table_from_DKAStates()
+LRTable["sync"] = [";"]
 
 
 class ParsingError(Exception):
