@@ -1,8 +1,3 @@
-__author__ = 'Mihael'
-import copy
-
-
-
 class DKAState:
     def __init__ (self, num, listOfNDKAs):
         self.num = num
@@ -91,7 +86,8 @@ class State:
 
 class MakeProducitons:
 
-    def __init__ (self, productions, starts_with, zavrsni, nezavrsni, pocetnoStanje):
+    def __init__ (self, productions, starts_with, zavrsni, nezavrsni, iduEpsilon, pocetnoStanje):
+        self.iduEpsilon = iduEpsilon
         self.allEpsilons = set()
         self.listOfStates = []
         self.dictionaryOfStates = {}
@@ -110,7 +106,7 @@ class MakeProducitons:
         self.convert_to_NDKA()
         self.convert_to_DKA()
         self.finalTable = {}
-        self.give_table_from_DKAStates()
+        #self.give_table_from_DKAStates()
 
 
     def __str__(self):
@@ -159,12 +155,22 @@ class MakeProducitons:
 
             if letter in self.productions:
 
+                moze = True
                 if state.pointer + 1 == len(myrightSide):
                    prvi_znak_od_zapocinje = '$'
                 else:
                     prvi_znak_od_zapocinje = myrightSide[state.pointer + 1]
+                    # treba dodat ako je iz myrightSide moze se generirat epsilon
+
+                    for broj in range(state.pointer+1, len(myrightSide)):
+                        if not(myrightSide[broj] in self.iduEpsilon):
+                            moze = False
+
+
 
                 pocetci = self.starts_with[prvi_znak_od_zapocinje]
+                if moze:
+                    pocetci.add('$')
 
 
                 for rightSide in self.productions[letter]:
@@ -172,7 +178,7 @@ class MakeProducitons:
                     # debug print (state.num,  self.info_production[brightSide][0])
                     # za svaku desnu stranu
                     curr_neighnour = self.info_production[(letter, brightSide)][0]
-                    self.listOfStates[curr_neighnour].stavke |= set(pocetci)
+                    self.listOfStates[curr_neighnour].stavke |= set(pocetci) # vec je set
                     state.epsilonNeighbours.add(curr_neighnour)
 
     def add_missing_stavke(self):
@@ -385,7 +391,7 @@ class MakeProducitons:
 
 
             i+=1
-        print (self.finalTable)
+        return self.finalTable
 
 
 
@@ -395,12 +401,13 @@ class MakeProducitons:
 ## A -> aA | b
 
 
-productions = {'<S>':[['<A>']], '<A>': [['<B>', '<A>'], ['$']], '<B>': [['a', '<B>'], ['b']]}
-starts_with = {'<B>': ['b', 'a'], '<A>': ['$', 'b', 'a'], '<S>' : ['$', 'b', 'a'],
-              'a' : ['a'], 'b':['b'], '$' : ['$']}
+productions = {'%': [['<A>']], '<B>': [['a', '<B>'], ['b']], '<A>': [['<B>', '<A>'], ['$']]}
+starts_with = {'b': ['b'], '$': ['$'], '%': {'$', 'b', 'a'}, '<B>': {'b', 'a'},
+               '<A>': {'$', 'b', 'a'}, 'a': ['a']}
 
-zavrsni = {'a', 'b', '$'}
-nezavrsni = {'<S>', '<A>', '<B>'}
+
+zavrsni = {'b', 'a', '$'}
+nezavrsni = {'%', '<B>', '<A>'}
 
 #productions = {'<X>':[['<S>']], '<S>':[['<A>', '<A>']], '<A>' : [ ['a', '<A>'], ['b']]}
 #starts_with = {'<X>': ['a','b'], '<S>':['a', 'b'], '<A>' : ['a', 'b'], 'a':['a'], 'b':['b'], '$':['$']}
@@ -408,4 +415,4 @@ nezavrsni = {'<S>', '<A>', '<B>'}
 #nezavrsni = {'<X>', '<S>', '<A>'}
 
 
-maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, '<S>')
+# maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, '<%>')
