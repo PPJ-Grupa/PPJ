@@ -3,8 +3,15 @@ __author__ = 'Mihael'
 
 import fileinput
 import pickle
-import PPJ.Lab2.analizator.TableFromGrammar2
-import  PPJ.Lab2.analizator.TableFromGrammar3
+
+from TableFromGrammar2 import *
+
+class ParsingError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 
 
 definitions = pickle.load( open( 'analizator/temporary_definitions.bin', 'rb' ) )
@@ -15,8 +22,8 @@ Syn = definitions['sinkronizacija']
 P = definitions['produkcije']
 SW = definitions['starts_with']
 iduEpsilon = definitions['iduEpsilon']
-maker = PPJ.Lab2.analizator.TableFromGrammar2.MakeProducitons(P, SW, T, V, iduEpsilon, '<%>')
-#maker =  PPJ.Lab2.analizator.TableFromGrammar3.MakeProducitons(P, SW, T, V, '<%>')
+maker = MakeProductions(P, SW, T, V, iduEpsilon, '<%>')
+#maker =  MakeProductions(P, SW, T, V, '<%>')
 LRTable = maker.give_table_from_DKAStates()
 print(len(LRTable))
 #for state in LRTable:
@@ -33,12 +40,6 @@ for line in lines:
     listOfInputTupes.append(tuple)
 
 
-
-class ParsingError(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
 
 stack = [0]
 
