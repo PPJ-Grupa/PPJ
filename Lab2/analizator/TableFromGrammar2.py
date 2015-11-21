@@ -7,7 +7,7 @@ class DKAState:
 
         #pozivat tek kad smo gotovi s konstrukcijom
     def giveRealStates(self):
-        for N, DKA in self.listOfNDKAs:
+        for NDKA in self.listOfNDKAs:
             for state in NDKA.states:
                 self.states.append(state)
 
@@ -121,7 +121,6 @@ class MakeProductions:
         #no point in this epislon transition
         if stringDesneStrane == '$' and pointer == 1:
             return
-        # debug print ("start", stringDesneStrane, pointer, self.num)
         if pointer == 0:
             self.info_production[(stringLijeveStrane, stringDesneStrane)] = {pointer : self.num}
 
@@ -191,21 +190,18 @@ class MakeProductions:
     # after we print dka size, this function does not make sense
     # since i forgot it is only nka, not dka
     def convert_to_NDKA(self):
+        #print ("ENKA", self.num)
         listOfLists = []
 
         for i in range(0, self.num):
             self.allEpsilons.add(i)
-           # print ("eps", i, self.listOfStates[i].epsilonNeighbours)
             self.giveSetOfEpsilons (i)
-          #  print (setOfEpsilons)
             noviSet = set()
             noviSet |= self.allEpsilons
-            # print (noviSet)
             listOfLists.append(noviSet)
             self.allEpsilons.clear()
 
         size = len(listOfLists)
-        print("ENKA", size)
 
 
         for i in range(0, size):
@@ -242,9 +238,6 @@ class MakeProductions:
             if i != koji:
                 finalListOfLists.append(list(totalListOfLists[i]))
 
-
-       # print (finalListOfLists)
-        print ("NDKA", numberOfStates)
 
         for i in range(numberOfStates):
             self.listOfNDKAStates.append(NDKAState(i))
@@ -335,6 +328,8 @@ class MakeProductions:
         for myDKAState in self.listOfDKAStates:
             myDKAState.giveRealStates()
 
+        print ("DKAka", len(self.listOfDKAStates))
+
 
 
    #gives transitions to NDKA states {1:{q1,q2}}, ali s brojevima !!
@@ -367,18 +362,21 @@ class MakeProductions:
         for dkaState in self.listOfDKAStates:
             for state in dkaState.states:
 
+
+
                 if state.pointer == len(state.production[1]) and state.production[0] == self.pocetnoStanje:
                     #treba jos provjerit da je zavrsni negdje nesto
-                    #
-                    # print ("pocetno_prihvatam")
+
                     self.finalTable[i]['$'] = ("A") #kao prihvati
                 elif state.production[1][0] == '$' or state.pointer == len(state.production[1]):
-                    j=0
+
                     for stavka in state.stavke:
-                         self.finalTable[i][stavka] = ("R",
-                         0 if state.production[1][0] == '$' else len(state.production[1]), state.production[0])
-                         j+=1
+                         # print ("stavka", stavka)
+                        self.finalTable[i][stavka] = ("R",
+                        0 if state.production[1][0] == '$' else len(state.production[1]), state.production[0])
+
                 elif state.pointer != len(state.production[1]):
+
                     letter = state.get_letter()
                     next_state = dkaState.getNeighbour(letter) # ovo tu mi se mora dobro racunat za
                     #fiksno slovo
@@ -415,4 +413,4 @@ nezavrsni = {'%', '<B>', '<A>'}
 #nezavrsni = {'<X>', '<S>', '<A>'}
 
 
-# maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, '<%>')
+#maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, set() ,'<%>')
