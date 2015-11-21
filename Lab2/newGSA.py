@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import fileinput
+import copy
 import json
 from collections import defaultdict
 from functools import lru_cache, reduce
@@ -65,13 +66,10 @@ def startsWithEpsilons(SW, P, iduEpsilon):
         napravio = False
 
         for key in SW:
-            for listOfLeftSides in P[key]:
-                for leftSide in listOfLeftSides:
-                     i = 0
-                     for letter in leftSide:
-                        if i == 0:
-                            i+=1
-                            continue # to smo izracunali prije
+            for leftSide in P[key]:
+                for letter in leftSide:
+                       # print("letter ", letter)
+
                         if letter in iduEpsilon: # kao kljuc zapocinje epsilonom
                             l1 = len(SW[key])
                             SW[key] = SW[key] | SW[letter]
@@ -79,8 +77,13 @@ def startsWithEpsilons(SW, P, iduEpsilon):
                             if l1 != l2:
                                 napravio = True
                         else:
+                            l1 = len(SW[key])
+                            SW[key] = SW[key] | (set([letter]) if letter[0] != '<' else set([]))
+                            l2 = len(SW[key])
+                            if l1 != l2:
+                                napravio = True
                             break
-                        #i+=1
+
 
         if napravio == False:
             break
@@ -90,7 +93,7 @@ lines = (line.rstrip() for line in fileinput.input())
 
 V = next(lines).split()[1:]
 start_symbol = V[0]
-print (start_symbol)
+#print (start_symbol)
 V = set(V)
 T = set(next(lines).split()[1:])
 Syn = set(next(lines).split()[1:])
@@ -103,12 +106,14 @@ for line in lines:
     else:
         vv = line
 
+#print ("P ", P)
+
 SW = {}
 V.add('<%>')
 P['<%>'] = [[start_symbol]]
 
 for el in V:
-    SW[el] = set()
+    SW[el] = set([])
 
 iduEpsilon = set()
 for key in P:
@@ -124,7 +129,7 @@ if len(iduEpsilon) > 0:
 
 productions = {}
 for key in P:
-    productions[key] = P[key]
+    productions[copy.deepcopy(key)] = copy.deepcopy(P[key])
 
 pocSize = len(iduEpsilon)
 
@@ -142,14 +147,27 @@ for key in SW:
         startsWith(SW, leftSides[0], key, set(), P)
 
 
-startsWithEpsilons(SW, P, iduEpsilon)
+productions = {}
+for key in P:
+    productions[copy.deepcopy(key)] = copy.deepcopy(P[key])
 
-for el in iduEpsilon:
-    SW[el].add('$')
+
+startsWithEpsilons(SW, productions, iduEpsilon)
+
+
 
 for el in T:
-    SW[el] = [el]
-    SW ['$'] = ['$']
+    SW[el] = set([el])
+    SW ['$'] = set(['$'])
+
+
+
+#for el in iduEpsilon:
+ #  SW[el].add('$')
+
+
+
+print ("epsilon ", iduEpsilon)
 
 print("nezavrsni ", V)
 print("terminali ", T)
@@ -157,7 +175,8 @@ print("sinkronizacija ", Syn)
 print ("produkcije: ", P)
 print ("starts_with: ", SW)
 
-definitions = { "nezavrsni" : V, "terminali" : T, "sinkronizacija": Syn, "produkcije":P, "starts_with": SW }
+definitions = { "nezavrsni" : V, "terminali" : T, "sinkronizacija": Syn, "produkcije":P, "starts_with": SW,
+                'iduEpsilon' : iduEpsilon}
 
 pickle.dump( definitions, open( 'analizator/temporary_definitions.bin', 'wb' ) )
 
