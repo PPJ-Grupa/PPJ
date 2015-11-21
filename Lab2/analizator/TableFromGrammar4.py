@@ -1,3 +1,4 @@
+import pickle
 class DKAState:
     def __init__ (self, num, listOfNDKAs):
         self.num = num
@@ -92,7 +93,7 @@ class MakeProductions:
         self.allEpsilons = set()
         self.listOfStates = []
         self.pozvaniHash = set()
-        self.dictionaryOfStates = {}
+      #  self.dictionaryOfStates = {}
         self.mapaSvih = {}
         self.num = 0
         self.productions = productions
@@ -132,7 +133,7 @@ class MakeProductions:
         if pointer == 0:
             self.info_production[(stringLijeveStrane, stringDesneStrane)] = {pointer : self.num}
 
-        self.dictionaryOfStates[self.num] = state
+       # self.dictionaryOfStates[self.num] = state
         self.listOfStates.append(state)
         self.num+=1
 
@@ -148,17 +149,26 @@ class MakeProductions:
             for rightSide in self.productions[production]:
                 for i in range(len(rightSide) + 1):
                      self.stateFromProduction((production, rightSide), i)
-        print(len(self.listOfStates))
+       # print(len(self.listOfStates))
 
+    def sequence_starts_with(self, sequence, empty_symbols ):
+
+         result = set()
+         for symbol in sequence:
+            result |= self.starts_with[ symbol ]
+            if symbol not in empty_symbols:
+                break
+         return result
 
     # pocetno stanje s dodanom stavkom {$}
     def add_epsilon_transformations(self, state):
-            print(len(self.mapaSvih))
-            hash = (state.num, str(state.stavke))
-            if hash in self.pozvaniHash:
+            #print(len(self.mapaSvih))
+            #print ("tu")
+            hash1 = (state.num, str(sorted(state.stavke)))
+            if hash1 in self.pozvaniHash:
                 return
             else:
-                self.pozvaniHash.add(hash)
+                self.pozvaniHash.add(hash1)
             myrightSide = state.production[1]
             if state.pointer == len(myrightSide):
                 return # ovi nemaju kud dalje
@@ -174,21 +184,18 @@ class MakeProductions:
             if letter in self.productions:
 
                 moze = True
+                pocetci = set()
                 if state.pointer + 1 == len(myrightSide):
-                   prvi_znak_od_zapocinje = '$'
-                else:
-                    prvi_znak_od_zapocinje = myrightSide[state.pointer + 1]
-                    # treba dodat ako je iz myrightSide moze se generirat epsilon
+                   pass
+                else :
+                     pocetci |= self.sequence_starts_with(myrightSide[state.pointer+1:], self.starts_with)
 
-                    for broj in range(state.pointer+1, len(myrightSide)):
-                        if not(myrightSide[broj] in self.iduEpsilon):
-                            moze = False
+                for broj in range(state.pointer+1, len(myrightSide)):
+                     if not(myrightSide[broj] in self.iduEpsilon):
+                        moze = False
 
-
-
-                pocetci = self.starts_with[prvi_znak_od_zapocinje]
                 if moze:
-                    pocetci.add('$')
+                        pocetci|=state.stavke
 
 
                 for rightSide in self.productions[letter]:
@@ -204,14 +211,14 @@ class MakeProductions:
                     noviState.neighbour = susjed.get_direct_neighbour()
                     noviState.stavke = set(pocetci)
 
-                    hash = (noviState.num, str(noviState.stavke))
+                    hash1 = (noviState.num, str(sorted(noviState.stavke)))
 
                     # s tim da u mapu svih treba ubaciti prvo pocetnog tamo gore negdje
-                    if hash in self.mapaSvih:
-                        broj = self.mapaSvih[hash]
+                    if hash1 in self.mapaSvih:
+                        broj = self.mapaSvih[hash1]
                     else:
                         broj = len(self.mapaSvih)
-                        self.mapaSvih[hash] = broj
+                        self.mapaSvih[hash1] = broj
                         self.reverseMap.append(noviState)
 
                     state.epsilonNeighbours.add(broj) #prije je tu bio broj hehe, a ok
@@ -220,7 +227,7 @@ class MakeProductions:
                     # self.listOfStates[curr_neighnour].stavke |= set(pocetci) # vec je set
                     # treba izgenerirati wrapper oko tog neighboura s tim stavkama
                     # wrappati self.listOfStates[curr_neighbour]
-                    # znaci traba nam mapa u kojoj je kljuè
+                    # znaci traba nam mapa u kojoj je kljuc
                     # num od origigi stanja, njegove_generirane stavke, a value on
                     # tako izgeneriramo sva takva stanja i imamo pocetno
                     # krenemo od pocetnog, gledamo kakva sve smeca nastaju
@@ -234,27 +241,21 @@ class MakeProductions:
                     noviState.neighbour = susjed.get_direct_neighbour()
                     noviState.stavke = state.stavke
 
-                    hash = (noviState.num, str(noviState.stavke))
+                    hash1 = (noviState.num, str(sorted(noviState.stavke)))
 
                     # s tim da u mapu svih treba ubaciti prvo pocetnog tamo gore negdje
-                    if hash in self.mapaSvih:
-                        broj = self.mapaSvih[hash]
+                    if hash1 in self.mapaSvih:
+                        broj = self.mapaSvih[hash1]
                     else:
                         broj = len(self.mapaSvih)
-                        self.mapaSvih[hash] = broj
+                        self.mapaSvih[hash1] = broj
                         self.reverseMap.append(noviState)
 
                     state.neighbour2 = broj #ovo je novi
 
                     self.add_epsilon_transformations(noviState)
-
-
-
-
     #pocetno stanje, skup hashanih stanja u kojima je bio
     #def create_new_states_with_links(state, skup):
-
-
     # i think i acctually managed to convert it to nka, so everything
     # after we print dka size, this function does not make sense
     # since i forgot it is only nka, not dka
@@ -262,7 +263,7 @@ class MakeProductions:
 
         listOfLists = []
         self.num = len(self.reverseMap) # a eto
-        print ("ENKA", self.num)
+      #  print ("ENKA", self.num)
 
         for i in range(0, self.num):
             self.allEpsilons.add(i)
@@ -273,28 +274,28 @@ class MakeProductions:
             self.allEpsilons.clear()
 
         size = len(listOfLists)
+      #  print ("Tu2")
 
-        print (listOfLists)
+       # print (listOfLists)
+
+        listOfLists = sorted(listOfLists, key = lambda x : len( x ) )
 
 
-        for i in range(0, size):
-            for j in range(i+1, size):
-                if len(listOfLists[i]) > len(listOfLists[j]):
-                    prviS = set(listOfLists[i])
-                    listOfLists[i] = set(listOfLists[j])
-                    listOfLists[j] = prviS
+       # print("krafna")
 
         totalListOfLists = []
         for i in range(0, size):
-            bool = True
+            bool1 = True
             for j in range(i+1, size):
                 if (listOfLists[i].issubset(listOfLists[j])):
-                    bool = False
+                    bool1 = False
                     break
-            if bool:
-                totalListOfLists.append( list (listOfLists[i]) )
+            if bool1:
+                totalListOfLists.append( listOfLists[i] )
 
         numberOfStates = len(totalListOfLists)
+
+      #  print ("tu si")
         # print (totalListOfLists)
 
 
@@ -305,14 +306,15 @@ class MakeProductions:
             # to je start stanje
             if 0 in totalListOfLists[i]:
                 koji = i
-                finalListOfLists.append(list(totalListOfLists[i]))
+                finalListOfLists.append(totalListOfLists[i])
                 break
         for i in range(0, numberOfStates):
             if i != koji:
-                finalListOfLists.append(list(totalListOfLists[i]))
+                finalListOfLists.append(totalListOfLists[i])
 
-        print(finalListOfLists)
+       # print(finalListOfLists)
 
+       # print ("tu si2")
         for i in range(numberOfStates):
             self.listOfNDKAStates.append(NDKAState(i))
 
@@ -333,6 +335,7 @@ class MakeProductions:
                             #print ("gore", i, letter, j)
 
             i+=1
+      #  print("Tu4")
 
 
 
@@ -363,6 +366,7 @@ class MakeProductions:
     # listu_listu stanja u koje je doticno smece preslo
     # u trenutku kada funkcija vrati praznu listu (nema prijelaza jbga) -> gotovi smo
     def convert_to_DKA(self):
+      #  print("Tu5")
         queue = []
         firstDKAState = DKAState(0, [self.listOfNDKAStates[0]])
         queue.append(firstDKAState) #stanje DKA je lista NDKA stanja
@@ -401,8 +405,9 @@ class MakeProductions:
         #we finish dka definition
         for myDKAState in self.listOfDKAStates:
             myDKAState.giveRealStates()
+        #print("Tu6")
 
-        print ("DKAka", len(self.listOfDKAStates))
+      #  print ("DKAka", len(self.listOfDKAStates))
 
 
 
@@ -473,13 +478,13 @@ class MakeProductions:
 ## A -> aA | b
 
 
-productions = {'%': [['<A>']], '<B>': [['a', '<B>'], ['b']], '<A>': [['<B>', '<A>'], ['$']]}
-starts_with = {'b': ['b'], '$': ['$'], '%': {'$', 'b', 'a'}, '<B>': {'b', 'a'},
-               '<A>': {'$', 'b', 'a'}, 'a': ['a']}
+#productions = {'%': [['<A>']], '<B>': [['a', '<B>'], ['b']], '<A>': [['<B>', '<A>'], ['$']]}
+#starts_with = {'b': ['b'], '$': ['$'], '%': {'$', 'b', 'a'}, '<B>': {'b', 'a'},
+#               '<A>': {'$', 'b', 'a'}, 'a': ['a']}
 
 
-zavrsni = {'b', 'a', '$'}
-nezavrsni = {'%', '<B>', '<A>'}
+#zavrsni = {'b', 'a', '$'}
+#nezavrsni = {'%', '<B>', '<A>'}
 
 #productions = {'<X>':[['<S>']], '<S>':[['<A>', '<A>']], '<A>' : [ ['a', '<A>'], ['b']]}
 #starts_with = {'<X>': ['a','b'], '<S>':['a', 'b'], '<A>' : ['a', 'b'], 'a':['a'], 'b':['b'], '$':['$']}
@@ -488,3 +493,22 @@ nezavrsni = {'%', '<B>', '<A>'}
 
 
 #maker = MakeProducitons(productions, starts_with, zavrsni, nezavrsni, set() ,'<%>')
+
+"""
+
+definitions = pickle.load( open( 'temporary_definitions.bin', 'rb' ) )
+
+V = definitions['nezavrsni']
+T = definitions['terminali']
+Syn = definitions['sinkronizacija']
+P = definitions['produkcije']
+SW = definitions['starts_with']
+iduEpsilon = definitions['iduEpsilon']
+maker =MakeProductions(P, SW, T, V, iduEpsilon, '<%>')
+#maker =  MakeProductions(P, SW, T, V, '<%>')
+LRTable = maker.give_table_from_DKAStates()
+
+
+pickle.dump( LRTable, open( 'x.bin', 'wb' ) )
+
+"""
