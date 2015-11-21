@@ -108,7 +108,7 @@ class Regex:
                or ( left_symbol.char == ')' and right_symbol.char == '(' ) )
 
 
-class Buildable:
+class Buildable( metaclass = ABCMeta ):
     @abstractmethod
     def build( self, string ):
         """Builds a finite-state machine, returns the initial and the terminal node"""
