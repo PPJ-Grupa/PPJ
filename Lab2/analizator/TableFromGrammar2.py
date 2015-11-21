@@ -7,7 +7,7 @@ class DKAState:
 
         #pozivat tek kad smo gotovi s konstrukcijom
     def giveRealStates(self):
-        for N, DKA in self.listOfNDKAs:
+        for NDKA in self.listOfNDKAs:
             for state in NDKA.states:
                 self.states.append(state)
 
@@ -98,7 +98,7 @@ class MakeProductions:
         self.nezavrsni = nezavrsni
         self.pocetnoStanje = pocetnoStanje
         self.info_production = {} # for production and pointer gives equivalent state number,
-        self.call_producitons() #dakle rijesili smo konstrukciju u konstruktoru
+        self.call_productions() #dakle rijesili smo konstrukciju u konstruktoru
         self.listOfNDKAStates = []
         self.listOfDKAStates = []
         self.add_epsilon_transformations()
@@ -133,13 +133,13 @@ class MakeProductions:
         production = self.pocetnoStanje
         for rightSide in self.productions[production]:
                 for i in range(len(rightSide) + 1):
-                     self.stateFromProduciton((production, rightSide), i)
+                     self.stateFromProduction((production, rightSide), i)
         for production in self.productions:
             if production == self.pocetnoStanje:
                 continue
             for rightSide in self.productions[production]:
                 for i in range(len(rightSide) + 1):
-                     self.stateFromProduciton((production, rightSide), i)
+                     self.stateFromProduction((production, rightSide), i)
 
 
     def add_epsilon_transformations(self):
