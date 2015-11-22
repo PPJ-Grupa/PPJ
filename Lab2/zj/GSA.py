@@ -287,6 +287,10 @@ if __name__ == "__main__":
             if not states[ nstate ].visited:
                 stack.append( nstate )
 
+    edge_cnt = 0
+    for state in states:
+        edge_cnt += len( state.moves )
+
     new_state_table = [ dict.fromkeys( nonterminals ) for _ in range( state_count ) ]
     action_table = [ dict.fromkeys( terminals + [ '#' ] ) for _ in range( state_count ) ]
 
@@ -317,19 +321,6 @@ if __name__ == "__main__":
                 for symbol in item.lookaheads:
                     if action_table[ state.num ][ symbol ] is None:
                         action_table[ state.num ][ symbol ] = ( 'R', item.rule )
-
-    cterminals = terminals + [ '#' ]
-    print( ' '.ljust( 5 ), end = '' )
-    for sym in cterminals:
-        print( sym.ljust( 12 ), end = '' )
-    for state in states:
-        print( '' )
-        print( str( state.num ).ljust( 5 ), end = '' )
-        for sym in cterminals:
-            print( str( action_table[ state.num ][ sym ] ).ljust( 12 ), end = '' )
-    print()
-
-    # print( new_state_table )
 
     pickle.dump( {
         'nonterminals' : nonterminals,
