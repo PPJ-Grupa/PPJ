@@ -318,6 +318,21 @@ class MakeProductions:
         for i in range(numberOfStates):
             self.listOfNDKAStates.append(NDKAState(i))
 
+
+
+        diIdu={}
+        for i in range(self.num):
+            j = 0
+            for lista in finalListOfLists:
+                if i in lista:
+                    if i in diIdu:
+                        diIdu[i].append(j)
+                    else:
+                        diIdu[i] = [j]
+
+                j+=1
+
+
         i = 0
         for lista in finalListOfLists:
             for state in lista:
@@ -328,10 +343,8 @@ class MakeProductions:
                # print ("tu", statet.production[0], statet.production[1], statet.pointer, neighbour)
                 if neighbour != -1:
                     #print (i+1), tu je bilo nezgodno skuzit da treba po svima
-                    for j in range(0, numberOfStates):
-                        otherList = finalListOfLists[j]
-                        if neighbour in otherList:
-                            self.listOfNDKAStates[i].addNeighbour(letter, j)
+                    for el in diIdu[neighbour]:
+                        self.listOfNDKAStates[i].addNeighbour(letter, el)
                             #print ("gore", i, letter, j)
 
             i+=1
