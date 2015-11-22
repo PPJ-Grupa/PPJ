@@ -287,10 +287,7 @@ if __name__ == "__main__":
             if not states[ nstate ].visited:
                 stack.append( nstate )
 
-    edge_cnt = 0
-    for state in states:
-        edge_cnt += len( state.moves )
-
+    # Generating parsing tables themselves
     new_state_table = [ dict.fromkeys( nonterminals ) for _ in range( state_count ) ]
     action_table = [ dict.fromkeys( terminals + [ '#' ] ) for _ in range( state_count ) ]
 

@@ -1,8 +1,6 @@
 import sys
 import pickle
 
-from TableFromGrammar2 import *
-
 class ParsingError( Exception ):
     pass
 
@@ -19,7 +17,7 @@ def advance( symbol ):
     if symbol[ 0 ] in action_table[ state ]:
         action = action_table[ state ][ symbol[ 0 ] ]
         if action is None:
-            raise ParsingError( 'No action allowed :: {}, {} [{}]'.format( state, symbol, stack[ -2 ] )  )
+            raise ParsingError( 'No action allowed :: {}, {} [{}]'.format( state, symbol, stack[ -2 ] if len( stack ) > 1 else stack )  )
         elif action[ 0 ] == 'R':
             rule = rules[ action[ 1 ] ]
             n = 0 if rule[ 1 ][ 0 ] == '$' else len( rule[ 1 ] )
