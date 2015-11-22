@@ -3,62 +3,148 @@ import sys
 
 from collections import defaultdict
 from copy import copy
+from pprint import pprint
 
-def calculateFirst( start, current, direct_first, grammar, ancestors ):
-    if current == '$': return
-    if current[ 0 ] != '<':
-        direct_first[ start ].add( current )
 
-    for rule in grammar[ current ]:
-        if rule[ 0 ] not in ancestors:
-            calculateFirst( start, rule[ 0 ], direct_first, grammar, ancestors | { current } )
+# Global variables
+grammar         = defaultdict( list )
+rules           = []
+empty_symbols   = set()
+nonterminals    = []
+terminals       = []
+symbols         = []
+syncs           = []
+starts_with     = {}
+starts_with_term     = {}
+directly_starts_with = {}
 
+nodes           = []
+item_node       = {}
+node_count      = 0
+edge_count      = 0
+
+class Item:
+    def __init__( self, rule, pos, lookaheads ):
+        self.rule = rule
+        self.pos = pos
+        self.lookaheads = lookaheads
+
+    def __str__( self ):
+        return '{}::{}::{}'.format( self.rule, self.pos, ':'.join( sorted( self.lookaheads ) ) )
+
+    def __repr__( self ):
+        rule = rules[ self.rule ]
+        return '{} -> {} * {}, {{ {} }}'.format( rule[ 0 ], ' '.join( rule[ 1 ][ :self.pos ] ), ' '.join( rule[ 1 ][ self.pos: ] ), ', '.join( self.lookaheads ) )
+
+    def __hash__( self ):
+        return hash( str( self ) )
+
+    def __eq__( self, other ):
+        return self.rule == other.rule and self.pos == other.pos and self.lookaheads == other.lookaheads
+
+    @classmethod
+    def get_node( cls, item ):
+        global item_node
+        if item in item_node.keys():
+            return item_node[ item ]
+
+        nnode = Node.new_node( item )
+        item_node[ item ] = nnode
+        return nnode
+
+
+class Node:
+    def __init__( self, item, num ):
+        self.num = num
+        self.item = item
+        self.moves = defaultdict( set )
+        self.visited = False
+
+    def add_link( self, node_num, symbol ):
+        global edge_count
+        edge_count += 1
+        self.moves[ symbol ].add( node_num )
+
+    def __str__( self ):
+        return '{} :: {}'.format( self.num, repr( self.item ) )
+
+    @classmethod
+    def new_node( cls, item ):
+        global nodes
+        global item_node
+        global node_count
+        nodes.append( cls( item, node_count ) )
+        item_node[ item ] = node_count
+        node_count += 1
+        return node_count - 1
+
+
+# Calculate epsilon surrounding of a set of nodes
+def epsilon_surround( node_set ):
+    surround = copy( node_set )
+
+    for node in node_set:
+
+
+
+# Returns a set of all the symbols a given sequence can start with
+def sequence_starts_with( sequence ):
+    global empty_symbols
+    global starts_with_term
+    result = set()
+    for symbol in sequence:
+        result |= starts_with_term[ symbol ]
+        if symbol not in empty_symbols: break
+    return result
+
+# Test whether a sequence can be transformed into an empty string
+def is_empty_seq( sequence ):
+    global empty_symbols
+    return len( [ symbol for symbol in sequence if symbol not in empty_symbols ] ) == 0
+
+
+# Get lookaheads
+def get_lookaheads( sequence, empty_addition ):
+    lookaheads = sequence_starts_with( sequence )
+    if is_empty_seq( sequence ):
+        lookaheads |= empty_addition
+    return lookaheads
+
+
+# As the name says, main program
 if __name__ == "__main__":
     lines = sys.stdin.readlines()
     lines_iter = iter( lines )
 
-    nonterminals = next( lines_iter ).split()[ 1: ]
-    terminals = next( lines_iter ).split()[ 1: ]
-    syncs = next( lines_iter ).split()[ 1: ]
+    nonterminals    = next( lines_iter ).split()[ 1: ]
+    terminals       = next( lines_iter ).split()[ 1: ]
+    syncs           = next( lines_iter ).split()[ 1: ]
 
-    grammar = defaultdict( list )
-    all_rules = []
-    rules = []
-    left_sym = None
+    left_sym        = None
+    rule_count      = 1
 
-    try:
-        while True:
-            line = next( lines_iter )
-            if line[ 0 ] == ' ':
-                rules.append( tuple( line.split() ) )
-                all_rules.append( ( left_sym, line.split() ) )
-            else:
-                if left_sym is not None:
-                    grammar[ left_sym ] += rules
-
-                left_sym = line.strip()
-                rules = []
-
-    except StopIteration:
-        grammar[ left_sym ] += rules
-
-    grammar[ '<%>' ] = [ ( nonterminals[ 0 ], ) ]
+    grammar[ '<%>' ] = [ 0 ]
+    rules = [ ( '<%>', [ nonterminals[ 0 ] ] ) ]
     nonterminals.insert( 0, '<%>' )
+    symbols = nonterminals + terminals
 
-    direct_first = { symbol : set() for symbol in nonterminals }
-    empty_symbols = set()
+    for line in lines[ 3: ]:
+        if line[ 0 ] == ' ':
+            grammar[ left_sym ].append( rule_count )
+            rules.append( ( left_sym, line.split() ) )
+            rule_count += 1
+        else:
+            left_sym = line.strip()
 
-    for symbol, rules in grammar.items():
-        for rule in rules:
-            if rule[ 0 ] == '$':
-                empty_symbols.add( symbol )
-                break
+    directly_starts_with = { symbol : { symbol } for symbol in symbols }
 
-    if len( empty_symbols ) > 0: terminals.append( '$' )
+    for left, right in rules:
+        if right[ 0 ] == '$':
+            empty_symbols.add( left )
 
     while True:
         new_empty_symbols = copy( empty_symbols )
-        for left_sym, rule in all_rules:
+        for left_sym, rule in rules:
             is_empty = True
             for symbol in rule:
                 if symbol not in empty_symbols:
@@ -70,32 +156,52 @@ if __name__ == "__main__":
             break
         empty_symbols = new_empty_symbols
 
-    for left_sym in nonterminals:
-        for rule in grammar[ left_sym ]:
-            calculateFirst( left_sym, rule[ 0 ], direct_first, grammar, set() )
+    for left, right in rules:
+        if right[ 0 ] != '$':
+            for symbol in right:
+                directly_starts_with[ left ].add( symbol )
+                if symbol not in empty_symbols: break
 
-    first = copy( direct_first )
+    starts_with = copy( directly_starts_with )
 
-    for left_sym, rules in grammar.items():
-        for rule in rules:
-            for symbol in rule:
-                if symbol[ 0 ] == '<':
-                    first[ left_sym ] |= direct_first[ symbol ]
-                    if symbol not in empty_symbols: break
-                else: break
+    for sym1 in symbols:
+        for sym2 in symbols:
+            if sym2 in starts_with[ sym1 ]:
+                starts_with[ sym1 ] |= starts_with[ sym2 ]
 
-    for symbol in empty_symbols:
-        first[ symbol ].add( '$' )
+    starts_with_term = { symbol : { x for x in starts_with[ symbol ] if x[ 0 ] != '<' } for symbol in symbols }
 
-    for term in terminals:
-        first[ term ] = { term }
+    start_item = Item( 0, 0, { '#' } )
+    Node.new_node( start_item )
 
+    stack = [ 0 ]
+    while stack:
+        current = nodes[ stack[ -1 ] ]
+        stack.pop()
+        if current.visited: continue
+        current.visited = True
 
-    pickle.dump( {
-            'nonterminal'   : nonterminals,
-            'terminal'      : terminals,
-            'sync'          : syncs,
-            'grammar'       : grammar,
-            'first'         : first,
-            'empty_symbols' : empty_symbols
-        }, open( 'analizator/temp_defs.bin', 'wb' ) )
+        citem = current.item
+        if citem.pos != len( rules[ citem.rule ][ 1 ] ):
+            right_sym = rules[ citem.rule ][ 1 ][ citem.pos ]
+            if right_sym == '$': continue
+            remains = rules[ citem.rule ][ 1 ][ citem.pos+1: ]
+            lookaheads = get_lookaheads( remains, citem.lookaheads )
+
+            # First move one step
+            nnode = Item.get_node( Item( citem.rule, citem.pos + 1, citem.lookaheads ) )
+            current.add_link( nnode, right_sym )
+            if not nodes[ nnode ].visited:
+                stack.append( nnode )
+
+            # Then try all epsilons
+            for rule_num in grammar[ right_sym ]:
+                nnode = Item.get_node( Item( rule_num, 0, lookaheads ) )
+                current.add_link( nnode, '$' )
+                if not nodes[ nnode ].visited:
+                    stack.append( nnode )
+
+    print( node_count )
+    print( edge_count )
+
+    for node in nodes:
