@@ -21,7 +21,10 @@ directly_starts_with = {}
 nodes           = []
 item_node       = {}
 node_count      = 0
-edge_count      = 0
+
+states          = []
+state_nums      = {}
+state_count     = 0
 
 class Item:
     def __init__( self, rule, pos, lookaheads ):
@@ -42,9 +45,11 @@ class Item:
     def __eq__( self, other ):
         return self.rule == other.rule and self.pos == other.pos and self.lookaheads == other.lookaheads
 
+    def __lt__( self, other ):
+        return self.rule < other.rule
+
     @classmethod
     def get_node( cls, item ):
-        global item_node
         if item in item_node.keys():
             return item_node[ item ]
 
@@ -61,8 +66,6 @@ class Node:
         self.visited = False
 
     def add_link( self, node_num, symbol ):
-        global edge_count
-        edge_count += 1
         self.moves[ symbol ].add( node_num )
 
     def __str__( self ):
@@ -70,8 +73,6 @@ class Node:
 
     @classmethod
     def new_node( cls, item ):
-        global nodes
-        global item_node
         global node_count
         nodes.append( cls( item, node_count ) )
         item_node[ item ] = node_count
@@ -79,18 +80,71 @@ class Node:
         return node_count - 1
 
 
-# Calculate epsilon surrounding of a set of nodes
+class State:
+    def __init__( self, node_set, num = -1 ):
+        self.nodes = node_set
+        self.num = num
+        self.moves = defaultdict( int )
+        self.visited = False
+
+    def add_link( self, state, symbol ):
+        self.moves[ symbol ] = state
+
+    def __str__( self ):
+        return ':'.join( map( str, sorted( self.nodes ) ) )
+
+    def __repr__( self ):
+        return '{} :: {{ {} }}'.format( self.num, ', '.join( map( str, sorted( self.nodes ) ) ) )
+
+    def __hash__( self ):
+        return hash( str( self ) )
+
+    def __eq__( self, other ):
+        return self.nodes == other.nodes
+
+    @classmethod
+    def new_state( cls, node_set ):
+        global state_count
+        state = State( node_set, state_count )
+        states.append( state )
+        state_nums[ state ] = state_count
+        state_count += 1
+        return state
+
+    @classmethod
+    def get_state( cls, node_set ):
+        state = cls( node_set )
+        if state in state_nums:
+            return state_nums[ state ]
+
+        state = State.new_state( node_set )
+        return state.num
+
+# Calculate epsilon surrounding of a set of nodes ( or a list )
 def epsilon_surround( node_set ):
-    surround = copy( node_set )
+    surround = set()
+    stack = list( node_set )
+    while stack:
+        node = stack[ -1 ]
+        stack.pop()
+        if node in surround: continue
+        surround.add( node )
+        for adj in nodes[ node ].moves[ '$' ]:
+            if adj not in surround:
+                stack.append( adj )
+    return surround
 
+
+# Advance a set of nodes by a given move
+def advance( node_set, symbol ):
+    result = set()
     for node in node_set:
-
+        result |= nodes[ node ].moves[ symbol ]
+    return result
 
 
 # Returns a set of all the symbols a given sequence can start with
 def sequence_starts_with( sequence ):
-    global empty_symbols
-    global starts_with_term
     result = set()
     for symbol in sequence:
         result |= starts_with_term[ symbol ]
@@ -99,7 +153,6 @@ def sequence_starts_with( sequence ):
 
 # Test whether a sequence can be transformed into an empty string
 def is_empty_seq( sequence ):
-    global empty_symbols
     return len( [ symbol for symbol in sequence if symbol not in empty_symbols ] ) == 0
 
 
@@ -109,6 +162,11 @@ def get_lookaheads( sequence, empty_addition ):
     if is_empty_seq( sequence ):
         lookaheads |= empty_addition
     return lookaheads
+
+
+# Helper function, tests whether a given item is an end position in a rule
+def is_end_position( item ):
+    return rules[ item.rule ][ 1 ][ item.pos ] == '$' if item.pos < len( rules[ item.rule ][ 1 ] ) else True
 
 
 # As the name says, main program
@@ -125,8 +183,7 @@ if __name__ == "__main__":
 
     grammar[ '<%>' ] = [ 0 ]
     rules = [ ( '<%>', [ nonterminals[ 0 ] ] ) ]
-    nonterminals.insert( 0, '<%>' )
-    symbols = nonterminals + terminals
+    symbols = [ '<%>' ] + nonterminals + terminals
 
     for line in lines[ 3: ]:
         if line[ 0 ] == ' ':
@@ -201,7 +258,84 @@ if __name__ == "__main__":
                 if not nodes[ nnode ].visited:
                     stack.append( nnode )
 
-    print( node_count )
-    print( edge_count )
+    start_set = epsilon_surround( { 0 } )
 
+    # eNKA to NKA conversion, very slow for PPJLang, 19sec
     for node in nodes:
+        surround = epsilon_surround( { node.num } )
+        for symbol in symbols:
+            node.moves[ symbol ] |= epsilon_surround( advance( surround, symbol ) )
+
+    # NKA to DKA conversion
+    start_state = State.get_state( start_set )
+    stack = [ start_state ]
+    while stack:
+        state = states[ stack[ -1 ] ]
+        stack.pop()
+        if state.visited: continue
+        state.visited = True
+
+        for symbol in symbols:
+
+            next_set = set()
+            for node in state.nodes:
+                next_set |= nodes[ node ].moves[ symbol ]
+
+            if len( next_set ) == 0: continue
+            nstate = State.get_state( next_set )
+            state.add_link( nstate, symbol )
+            if not states[ nstate ].visited:
+                stack.append( nstate )
+
+    new_state_table = [ dict.fromkeys( nonterminals ) for _ in range( state_count ) ]
+    action_table = [ dict.fromkeys( terminals + [ '#' ] ) for _ in range( state_count ) ]
+
+    for state in states:
+        # Fill in new_state_table
+        for symbol in nonterminals:
+            if symbol in state.moves:
+                new_state_table[ state.num ][ symbol ] = state.moves[ symbol ]
+
+        # Set accept action, if there
+        if 1 in state.nodes:
+            action_table[ state.num ][ '#' ] = ( 'A', )
+
+        local_items = sorted( [ nodes[ node ].item for node in state.nodes ] )
+
+        # Set shift actions
+        for item in local_items:
+            if item.pos != len( rules[ item.rule ][ 1 ] ):
+                symbol = rules[ item.rule ][ 1 ][ item.pos ]
+                if symbol in nonterminals or symbol == '$': continue
+                if symbol in state.moves:
+                    if action_table[ state.num ][ symbol ] is None:
+                        action_table[ state.num ][ symbol ] = ( 'S', state.moves[ symbol ] )
+
+        # Set reduce actions
+        for item in local_items:
+            if is_end_position( item ):
+                for symbol in item.lookaheads:
+                    if action_table[ state.num ][ symbol ] is None:
+                        action_table[ state.num ][ symbol ] = ( 'R', item.rule )
+
+    cterminals = terminals + [ '#' ]
+    print( ' '.ljust( 5 ), end = '' )
+    for sym in cterminals:
+        print( sym.ljust( 12 ), end = '' )
+    for state in states:
+        print( '' )
+        print( str( state.num ).ljust( 5 ), end = '' )
+        for sym in cterminals:
+            print( str( action_table[ state.num ][ sym ] ).ljust( 12 ), end = '' )
+    print()
+
+    # print( new_state_table )
+
+    pickle.dump( {
+        'nonterminals' : nonterminals,
+        'terminals' : terminals,
+        'sync' : syncs,
+        'rules' : rules,
+        'new_state_table' : new_state_table,
+        'action_table' : action_table
+    }, open( 'analizator/tables.bin', 'wb' ) )
