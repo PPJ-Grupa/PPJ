@@ -181,21 +181,21 @@ class MakeProductions:
 
             #print (letter)
 
+            moze = True
+            pocetci = set()
+            if state.pointer + 1 == len(myrightSide):
+                 pass
+            else :
+                pocetci |= self.sequence_starts_with(myrightSide[state.pointer+1:], self.starts_with)
+
+            for broj in range(state.pointer+1, len(myrightSide)):
+                if not(myrightSide[broj] in self.iduEpsilon):
+                     moze = False
+
+            if moze:
+                    pocetci|=state.stavke
+
             if letter in self.productions:
-
-                moze = True
-                pocetci = set()
-                if state.pointer + 1 == len(myrightSide):
-                   pass
-                else :
-                     pocetci |= self.sequence_starts_with(myrightSide[state.pointer+1:], self.starts_with)
-
-                for broj in range(state.pointer+1, len(myrightSide)):
-                     if not(myrightSide[broj] in self.iduEpsilon):
-                        moze = False
-
-                if moze:
-                        pocetci|=state.stavke
 
 
                 for rightSide in self.productions[letter]:
@@ -397,10 +397,7 @@ class MakeProductions:
             for key in returnMap:
                 #print (num)
                 listaPov = returnMap[key] #zapravoset
-                if (listaPov in listOfStateSets):
-                    lista = []
-                    for i in listaPov:
-                         lista.append(self.listOfNDKAStates[i])
+                if listaPov in listOfStateSets:
                     index = listOfStateSets.index(listaPov)
                     trenutni.add_neighbour(key, index)
                     continue
