@@ -11,14 +11,19 @@ class SemantickiAnalizator:
   def check_expressions(self, expressions):
     return self.lines.check_expressions(expressions)
 
+  def parse_error(self):
+    raise Exception("Parser error on line: " + str(self.lines.get_line()))
+
   def start(self):
+    print("Starting and checking for <prijevodna_jedinica>")
     self.check_expressions(["<prijevodna_jedinica>"])
+    print("Calling self.prijevodna_jedinica()")
     self.prijevodna_jedinica()
 
 ######################################
 ############### IZRAZI ###############
 ######################################
-"""PRIMARNI IZRAZ"""
+#"""PRIMARNI IZRAZ"""
   def primarni_izraz(self):
     print("prijevodna_jedinica")
     print(self.lines.get_line())
@@ -39,7 +44,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""POSTFIX IZRAZI"""
+#"""POSTFIX IZRAZI"""
   def postfiks_izraz(self):
     print("postfiks_izraz")
     print(self.lines.get_line())
@@ -62,7 +67,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""LISTA ARGUMENATA"""
+#"""LISTA ARGUMENATA"""
   def lista_argumenata(self):
     print("lista_argumenata")
     print(self.lines.get_line())
@@ -74,7 +79,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""UNARNI IZRAZ"""
+#"""UNARNI IZRAZ"""
   def unarni_izraz(self):
     print("unarni_izraz")
     print(self.lines.get_line())
@@ -97,12 +102,12 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""UNARNI OPERATOR"""
+#"""UNARNI OPERATOR"""
   def unarni_operator(self):
     print("unarni_operator")
     print(self.lines.get_line())
 
-    if self.check_expressions(["PLUS"]) or 
+    if self.check_expressions(["PLUS"]) or \
       self.check_expressions(["MINUS"]) or \
       self.check_expressions(["OP_TILDA"]) or \
       self.check_expressions(["OP_NEG"]):
@@ -110,7 +115,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""CAST IZRAZ"""
+#"""CAST IZRAZ"""
   def cast_izraz(self):
     print("cast_izraz")
     print(self.lines.get_line())
@@ -125,7 +130,7 @@ class SemantickiAnalizator:
       else:
         return Expr(expr.get_type(), False)
 
-"""IME TIPA"""
+#"""IME TIPA"""
   def ime_tipa(self):
     print("ime_tipa")
     print(self.lines.get_line())
@@ -137,11 +142,11 @@ class SemantickiAnalizator:
       if expr.is_type("VOID"):
         self.parse_error()
       else:
-        return Expr(const(expr.get_type()), False)
+        return Expr(expr.get_type(), False, True)
     else:
       self.parse_error()
 
-"""SPECIFIKATOR TIPA"""
+#"""SPECIFIKATOR TIPA"""
   def specifikator_tipa(self):
     print("specifikator_tipa")
     print(self.lines.get_line())
@@ -155,7 +160,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""MULTIPLIKATIVNI IZRAZ"""
+#"""MULTIPLIKATIVNI IZRAZ"""
   def multiplikativni_izraz(self):
     print("multiplikativni_izraz")
     print(self.lines.get_line())
@@ -169,7 +174,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""ADITIVNI IZRAZ"""
+#"""ADITIVNI IZRAZ"""
   def aditivni_izraz(self):
     print("aditivni_izraz")
     print(self.lines.get_line())
@@ -182,7 +187,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""ODNOSNI IZRAZ"""
+#"""ODNOSNI IZRAZ"""
   def odnosni_izraz(self):
     print("odnosni_izraz")
     print(self.lines.get_line())
@@ -197,7 +202,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""JEDNAKOSNI IZRAZ"""
+#"""JEDNAKOSNI IZRAZ"""
   def jednakosni_izraz(self):
     print("jednakosni_izraz")
     print(self.lines.get_line())
@@ -208,7 +213,7 @@ class SemantickiAnalizator:
       self.check_expressions(["<jednakosni_izraz>", "OP_NEQ", "<odnosni_izraz>"]):
       return check_both_for_int_and_return_int(self.jednakosni_izraz, self.odnosni_izraz)
 
-"""BIN I IZRAZ"""
+#"""BIN I IZRAZ"""
   def bin_i_izraz(self):
     print("bin_i_izraz")
     print(self.lines.get_line())
@@ -220,7 +225,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""BIN XILI IZRAZ"""
+#"""BIN XILI IZRAZ"""
   def bin_xili_izraz(self):
     print("bin_xili_izraz")
     print(self.lines.get_line())
@@ -232,7 +237,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""BIN ILI IZRAZ"""
+#"""BIN ILI IZRAZ"""
   def bin_ili_izraz(self):
     print("bin_ili_izraz")
     print(self.lines.get_line())
@@ -244,7 +249,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""LOG I IZRAZ"""
+#"""LOG I IZRAZ"""
   def log_i_izraz(self):
     print("log_i_izraz")
     print(self.lines.get_line())
@@ -256,7 +261,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""LOG ILI IZRAZ"""
+#"""LOG ILI IZRAZ"""
   def log_ili_izraz(self):
     print("log_ili_izraz")
     print(self.lines.get_line())
@@ -268,7 +273,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""IZRAZ PRIDRUZIVANJA"""
+#"""IZRAZ PRIDRUZIVANJA"""
   def izraz_pridruzivanja(self):
     print("izraz_pridruzivanja")
     print(self.lines.get_line())
@@ -286,7 +291,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""IZRAZ"""
+#"""IZRAZ"""
   def izraz(self):
     print("izraz")
     print(self.lines.get_line())
@@ -302,7 +307,7 @@ class SemantickiAnalizator:
 ## NAREDBENA STRUKTURA PROGRAMA ##
 ##################################
 
-"""SLOZENA NAREDBA"""
+#"""SLOZENA NAREDBA"""
   def slozena_naredba(self):
     print("slozena_naredba")
     print(self.lines.get_line())
@@ -315,7 +320,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""LISTA NAREDBI"""
+#"""LISTA NAREDBI"""
   def lista_naredbi(self):
     print("lista_naredbi")
     print(self.lines.get_line())
@@ -328,7 +333,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""IZRAZ NAREDBA"""
+#"""IZRAZ NAREDBA"""
   def izraz_naredba(self):
     print("izraz_naredba")
     print(self.lines.get_line())
@@ -340,7 +345,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""NAREDBA GRANANJA"""
+#"""NAREDBA GRANANJA"""
   def naredba_grananja(self):
     print("naredba_grananja")
     print(self.lines.get_line())
@@ -358,7 +363,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""NAREDBA PETLJE"""
+#"""NAREDBA PETLJE"""
   def naredba_petlje(self):
     print("naredba_petlje")
     print(self.lines.get_line())
@@ -383,7 +388,7 @@ class SemantickiAnalizator:
     else:
       self.parse_error()
 
-"""NAREDBA SKOKA"""
+#"""NAREDBA SKOKA"""
   def naredba_skoka(self):
     print("naredba_skoka")
     print(self.lines.get_line())
@@ -396,20 +401,22 @@ class SemantickiAnalizator:
     elif self.check_expressions(["KR_RETURN", "<izraz>", "TOCKAZAREZ"]):
       raise Exception("need pov impl")
 
-"""PRIJEVODNA JEDINICA"""
+#"""PRIJEVODNA JEDINICA"""
   def prijevodna_jedinica(self):
     print("prijevodna_jedinica")
     print(self.lines.get_line())
 
     if self.check_expressions(["<vanjska_deklaracija>"]):
-      vanjska_deklaracija()
+      print("<vanjska_deklaracija>")
+      self.vanjska_deklaracija()
     elif self.check_expressions(["<prijevodna_jedinica>", "<vanjska_deklaracija>"]):
-      prijevodna_jedinica()
-      vanjska_deklaracija()
+      print("<prijevodna_jedinica> <vanjska_deklaracija>")
+      self.prijevodna_jedinica()
+      self.vanjska_deklaracija()
     else:
       self.parse_error()
 
-"""VANJSKA DEKLARACIJA"""
+#"""VANJSKA DEKLARACIJA"""
   def vanjska_deklaracija(self):
     print("vanjska_deklaracija")
     print(self.lines.get_line())
@@ -417,53 +424,60 @@ class SemantickiAnalizator:
     if self.check_expressions(["<definicija_funkcije>"]):
       self.definicija_funkcije()
     elif self.check_expressions(["<deklaracija>"]):
-      deklaracija()
+      self.deklaracija()
     else:
       self.parse_error()
-      
+
 ##############################
 ## DEKLARACIJE I DEFINICIJE ##
 ##############################
 
+#"""DEFINICIJA FUNKCIJE"""
   def definicija_funkcije(self):
     print("definicija_funkcije")
     print(self.lines.get_line())
 
-    valid = \
-      self.check_expressions(["<ime_tipa>", "IDN", "L_ZAGRADA", "KR_VOID", "D_ZAGRADA", "<slozena_naredba>"]) or \
-      self.check_expressions(["<ime_tipa>", "IDN", "L_ZAGRADA", "<lista_parametara>", "D_ZAGRADA", "<slozena_naredba>"])
+    if self.check_expressions(["<ime_tipa>", "IDN", "L_ZAGRADA", "KR_VOID", "D_ZAGRADA", "<slozena_naredba>"]):
+      if self.ime_tipa().is_const():
+        self.parse_error()
+      raise Exception("Need kinda a lot of work")
+    elif self.check_expressions(["<ime_tipa>", "IDN", "L_ZAGRADA", "<lista_parametara>", "D_ZAGRADA"
+                                ,"<slozena_naredba>"]):
+      raise Exception("Need more work")
+    else:
+      self.parse_error()
 
-    print(str(valid))
-    if not valid:
-      raise Exception("Parser error at:\n" + self.lines.get_line())
-    return valid
-
+#"""LISTA PARAMETARA"""
   def lista_parametara(self):
     print("lista_parametara")
     print(self.lines.get_line())
 
-    valid = \
-      self.check_expressions(["<deklaracija_parametara>"]) or \
-      self.check_expressions(["<lista_parametara>", "ZAREZ", "<deklaracija_parametara>"])
+    if self.check_expressions(["<deklaracija_parametra>"]):
+      return deklaracija_parametra()
+    elif self.check_expressions(["<lista_parametara>", "ZAREZ", "<deklaracija_parametra>"]):
+      tipovi, imena = lista_parametara()
+      tip, ime = deklaracija_parametra()
+      return tipovi.append(tip), imena.append(ime)
+    else:
+      self.parse_error()
 
-    print(str(valid))
-    if not valid:
-      raise Exception("Parser error at:\n" + self.lines.get_line())
-    return valid
-
-  def deklaracija_parametara(self):
-    print("deklaracija_parametara")
+#"""DEKLARACIJA PARAMETRA"""
+  def deklaracija_parametra(self):
+    print("deklaracija_parametra")
     print(self.lines.get_line())
 
-    valid = \
-      self.check_expressions(["<ime_tipa>", "IDN"]) or \
-      self.check_expressions(["<ime_tipa>", "IDN", "L_UGL_ZAGRADA", "D_UGL_ZAGRADA"])
+    if self.check_expressions(["<ime_tipa>", "IDN"]):
+      tip = ime_tipa().get_type()
+      if tip == "VOID":
+        self.parse_error()
+      raise Exception("TODO")
+    elif self.check_expressions(["<ime_tipa>", "IDN", "L_UGL_ZAGRADA", "D_UGL_ZAGRADA"]):
+      tip = ime_tipa().get_type()
+      if tip == "VOID":
+        self.parse_error()
+      raise Exception("TODO")
 
-    print(str(valid))
-    if not valid:
-      raise Exception("Parser error at:\n" + self.lines.get_line())
-    return valid
-
+#"""LISTA DEKLARACIJA"""
   def lista_deklaracija(self):
     print("lista_deklaracija")
     print(self.lines.get_line())

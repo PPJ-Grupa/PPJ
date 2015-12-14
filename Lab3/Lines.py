@@ -22,10 +22,10 @@ class Lines:
     ret, _ = chop(self.get_line(iterr))
     return int(ret)
   """Returns the next expression on the current depth lvl"""
-  def next_in_lvl(self):
-    curr_lvl = self.get_lvl() + 1
+  def next_in_lvl(self, original_lvl):
     self.next()
-    while not self.iter_outside and self.get_lvl() != curr_lvl:
+    #print("next_in_lvl getline: " + self.get_line())
+    while not self.iter_outside() and self.get_lvl() != original_lvl:
       self.next()
     _, expr, _ = extract_3(self.get_line())
     #print("next: " + str(expr))
@@ -33,13 +33,16 @@ class Lines:
   """Check whether provided expressions exist at the current level"""
   def check_expressions(self, expressions):
     original_iter = self._iter
-    if type(expressions) is list:
-      for expr in expressions:
-        if not self.next_in_lvl() == expr:
-          self._iter = original_iter
-          return False
-    elif not self.next_in_lvl() == expressions:
-      self._iter = original_iter
-      return False
+    original_lvl = self.get_lvl()
+    #print("orig lvl: " + str(original_lvl))
+    #print("expressions: " + str(expressions))
+    for expr in expressions:
+      #print("expr: " + expr)
+      next_in_lv = self.next_in_lvl(original_lvl + 1)
+      if not next_in_lv == expr:
+        self._iter = original_iter
+        #print("next in lvl (fls): " + next_in_lv)
+        return False
     self._iter = original_iter
+    self.next()
     return True
