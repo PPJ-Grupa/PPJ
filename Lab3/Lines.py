@@ -34,14 +34,14 @@ class Lines:
   def check_expressions(self, expressions):
     original_iter = self._iter
     original_lvl = self.get_lvl()
-    #print("orig lvl: " + str(original_lvl))
-    #print("expressions: " + str(expressions))
+    print("orig lvl: " + str(original_lvl))
+    print("expressions: " + str(expressions))
     for expr in expressions:
       #print("expr: " + expr)
       next_in_lv = self.next_in_lvl(original_lvl + 1)
       if not next_in_lv == expr:
         self._iter = original_iter
-        #print("next in lvl (fls): " + next_in_lv)
+        print("next in lvl (fls): " + next_in_lv)
         return False
     self._iter = original_iter
     self.next()

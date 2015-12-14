@@ -24,5 +24,4 @@ def extract_4(sentence):
   fst, rest = chop(sentence)
   snd, rest = chop(rest)
   trd, fth = chop(rest)
-  fth, rest = chop(rest)
   return fst, snd, trd, fth
