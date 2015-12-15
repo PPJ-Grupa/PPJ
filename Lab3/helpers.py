@@ -1,3 +1,5 @@
+import re
+
 def calculate_padding(word):
   count = 0
   for c in word:
@@ -25,3 +27,11 @@ def extract_4(sentence):
   snd, rest = chop(rest)
   trd, fth = chop(rest)
   return fst, snd, trd, fth
+
+def is_valid_char_array(c_arr):
+  for res in re.findall(r"\\.", c_arr):
+    if not res == r"\t" and not res == r"\n" and \
+        not res == r"\0" and not res == r"\'" and \
+        not res == r"\"" and not res == r"\\":
+        return False
+  return True

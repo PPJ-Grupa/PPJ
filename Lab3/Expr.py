@@ -2,7 +2,7 @@ from helpers import *
 
 class Expr:
   def __init__(self, etype, lexpr = False, 
-      is_const = False, is_function = False,
+      is_const = False, is_function = False, is_array = False,
       fun_from = [], fun_to = []):
    self._type = etype
    self._lexpr = lexpr

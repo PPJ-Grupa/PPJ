@@ -9,7 +9,7 @@ lines = []
 # Remove trailing whitespace from rows
 [lines.append(line.rstrip()) for line in fileinput.input()]
 
-print("\n".join(lines))
+#print("\n".join(lines))
 
 # Turn padding into preceding number
 lines = [str(calculate_padding(line)) + ' ' + line.lstrip() for line in lines]

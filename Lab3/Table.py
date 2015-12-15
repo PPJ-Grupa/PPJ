@@ -3,13 +3,17 @@ from Expr import Expr
 
 class Table:
   def __init__(self):
-    self._contents = []
+    self._contents = {}
     self._declared_functions = {}
     self._defined_functions = {}
   def contains(self, variable_name):
     return variable_name in self._contents
   def get_var(self,variable_name):
     return self._contents[variable_name]
+  def get_lexpr(self, variable_name):
+    return self._contents[variable_name].get_lexpr()
+  def get_type(self, variable_name):
+    return self._contents[variable_name].get_type()
 
   #def add(self, entry):
   #  self._contents.append(entry)
