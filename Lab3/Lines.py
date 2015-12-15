@@ -62,9 +62,14 @@ class Lines:
 
   """Assert leaf"""
   def assert_leaf(self, fst_exp, snd_exp = ""):
+    print("# assert_leaf: " + fst_exp)
+    print(self.get_line())
     _, _fst_exp, _, _snd_exp = extract_4(self.get_line())
-    if not _fst_exp == fst_exp or \
-        (not _snd_exp == snd_exp and not snd_exp == ""):
+    #if fst_exp == "D_VIT_ZAGRADA": raise Exception()
+    if not _fst_exp == fst_exp:
+      print("fs: " + fst_exp + " _: " + _fst_exp)
+      return self.parse_error()
+    if not _snd_exp == snd_exp and not snd_exp == "":
       return self.parse_error()
     else:
       self.next()
@@ -95,4 +100,5 @@ class Lines:
     print(final_output)
     self.terminate = True
     #print(prev_expr + " ::= " + exp + "(" + line_num + "," + name + ")")
+    #raise Exception()
     return Expr("TEMINATE")
