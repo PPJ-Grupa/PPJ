@@ -1,5 +1,11 @@
 import re
 
+"""IS SAME TYPE"""
+def is_same_type(self, fst_exp, snd_exp):
+  return fst_exp.is_type("CHAR") and snd_exp.is_type("INT") \
+      or (fst_exp.is_const or snd_exp.is_const) and fst_exp.is_type(snd_exp.get_type()) \
+        and not fst_exp.is_function
+
 def calculate_padding(word):
   count = 0
   for c in word:

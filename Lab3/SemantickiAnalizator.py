@@ -1,7 +1,7 @@
 from Table import Table
 from Expr import Expr
 from Lines import Lines
-from helpers import extract_4, is_valid_char_array
+from helpers import extract_4, is_valid_char_array, is_same_type
 
 counter = 1
 def pprint(stri):
@@ -35,68 +35,65 @@ class SemantickiAnalizator:
     else: return self.lines.assert_leaf(fst_exp, snd_exp)
 
   """PARSE ERROR"""
-  def parse_error(self):
+  def parse_error(self, curr_line):
     self.terminate = True
-    return self.lines.parse_error()
+    return self.lines.parse_error(curr_line)
 
   """CHECK BOTH FOR INT AND RETURN INT"""
   def check_both_for_int_and_return_int(self, fst_fun, expr, snd_fun):
-    if not fst_fun().is_type("INT"):
-      return self.parse_error()
+    if not fst_fun() == Expr("INT"):
+      return self.parse_error(curr_line)
     self.assert_leaf(expr)
-    if not snd_fun().is_type("INT"):
-      return self.parse_error()
+    if not snd_fun() == Expr("INT"):
+      return self.parse_error(curr_line)
     return Expr("INT")
-
-  """IS SAME TYPE"""
-  def is_same_type(self, fst_exp, snd_exp):
-    return fst_exp.is_type("CHAR") and snd_exp.is_type("INT") \
-        or (fst_exp.is_const() or snd_exp.is_const()) and fst_exp.is_type(snd_exp.get_type()) \
-          and not fst_exp.is_function()
 
   """CAN CAST"""
   def can_cast(self, fst_exp, snd_type):
-    return self.is_same_type(fst_exp, snd_exp) \
-        or fst_exp.is_type("INT") and snd_exp.is_type("CHAR")
+    return is_same_type(fst_exp, snd_exp) \
+        or fst_exp == Expr("INT") and snd_exp == Expr("CHAR")
 
   """START"""
   def start(self):
-    pprint("# Starting and checking for <prijevodna_jedinica>")
+    #pprint("# Starting and checking for <prijevodna_jedinica>")
     self.check_expressions(["<prijevodna_jedinica>"])
-    pprint("Calling self.prijevodna_jedinica()")
+    #pprint("Calling self.prijevodna_jedinica()")
     self.prijevodna_jedinica()
+
+    if not self.terminate:
+      pprint("Succesful semantic analysis. No errors!")
 
 ######################################
 ############### IZRAZI ###############
 ######################################
   """PRIMARNI IZRAZ"""
   def primarni_izraz(self):
+    curr_line = self.lines._iter
     pprint("# primarni_izraz")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["IDN"]):
-      expr = self.assert_leaf("IDN")
-      if not self.table.contains(expr):
-        print("AASD")
-        return self.parse_error()
+      idn = self.assert_leaf("IDN")
+      if self.table.contains(idn):
+        return self.table.get_var(idn)
+      elif self.table.is_JUST_declared(idn):
+        return self.table.get_function(idn)
       else:
-        return Expr(self.table.get_type(expr), lexpr = self.table.get_lexpr(expr))
+        return self.parse_error(curr_line)
     elif self.check_expressions(["BROJ"]):
       expr = self.assert_leaf("BROJ")
       if int(expr) < -2**31 or int(expr) >= 2**31:
-        return self.parse_error()
-      return Expr("INT", False)
+        return self.parse_error(curr_line)
+      return Expr("INT")
     elif self.check_expressions(["ZNAK"]):
       expr = self.assert_leaf("ZNAK")
-      if int(expr) < 0 or int(expr) > 255:
-        return self.parse_error()
-      return Expr("CHAR", 0)
+      if not len(expr) == 3 or ord(expr[1]) < 0 or ord(expr[1]) > 255:
+        return self.parse_error(curr_line)
+      return Expr("CHAR")
     elif self.check_expressions(["NIZ_ZNAKOVA"]):
-      # TODO
-      raise Exception("Not fully implemented")
       expr = self.assert_leaf("NIZ_ZNAKOVA")
       if not is_valid_char_array(expr):
-        return self.parse_error()
+        return self.parse_error(curr_line)
       return Expr("CHAR", is_array = True)
     elif self.check_expressions(["L_ZAGRADA", "<izraz>", "D_ZAGRADA"]):
       self.assert_leaf("L_ZAGRADA")
@@ -104,56 +101,68 @@ class SemantickiAnalizator:
       self.assert_leaf("D_ZAGRADA")
       return expr
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """POSTFIX IZRAZI"""
   def postfiks_izraz(self):
+    curr_line = self.lines._iter
     pprint("# postfiks_izraz")
     pprint(self.lines.get_line())
 
-    if self.check_expressions(["<primarni_izraz>"]):
-      return self.primarni_izraz()
-    elif self.check_expressions(["<postfiks_izraz>", "L_UGL_ZAGRADA", "<izraz>", "D_UGL_ZAGRADA"]):
+    if self.check_expressions(["<postfiks_izraz>", "L_UGL_ZAGRADA", "<izraz>", "D_UGL_ZAGRADA"]):
       expr = self.postfiks_izraz()
       if not expr.is_array():
-        return self.parse_error()
+        return self.parse_error(curr_line)
       self.assert_leaf("L_UGL_ZAGRADA")
-      if not self.izraz().is_type("INT"):
-        return self.parse_error()
+      if not self.izraz() == Expr("INT"):
+        return self.parse_error(curr_line)
       self.assert_leaf("D_UGL_ZAGRADA")
-      return Expr(expr.get_type(), lexpr = (not expr.is_const()))
+      return Expr(expr.get_type(), lexpr = (not expr.is_const))
     elif self.check_expressions(["<postfiks_izraz>", "L_ZAGRADA", "D_ZAGRADA"]):
       expr = self.postfiks_izraz()
-      if not expr.is_function() or not expr.is_function_from(["VOID"]):
-        return self.parse_error()
-      return Expr(expr.get_return_type())
+      self.assert_leaf("L_ZAGRADA")
+      self.assert_leaf("D_ZAGRADA")
+      if not expr.is_function or not expr.is_function_from([Expr("VOID")]):
+        return self.parse_error(curr_line)
+      ret = expr.get_return_type()
+      if len(ret) != 1:
+        raise Exception("This should not happen")
+      else:
+        return ret[0]
     elif self.check_expressions(["<postfiks_izraz>", "L_ZAGRADA", "<lista_argumenata>", "D_ZAGRADA"]):
       expr = self.postfiks_izraz()
       self.assert_leaf("L_ZAGRADA")
       expr2 = self.lista_argumenata()
       self.assert_leaf("D_ZAGRADA")
-      if not expr.is_function() or not expr.is_function_from(expr2.get_type()):
-        return self.parse_error()
-      return expr.get_return_type()
+      if not expr.is_function or not expr.is_function_from(expr2):
+        return self.parse_error(curr_line)
+      ret = expr.get_return_type()
+      if len(ret) != 1:
+        raise Exception("This should not happen")
+      else:
+        return ret[0]
     elif self.check_expressions(["<postfiks_izraz>", "OP_INC"]):
-      exp = self.postfiks_izraz()
+      expr = self.postfiks_izraz()
       self.assert_leaf("OP_INC")
-      if not exp.is_lexpr() or not exp.is_type("INT"):
-        return self.parse_error()
+      if not expr.is_lexpr() or not expr == Expr("INT"):
+        return self.parse_error(curr_line)
       else:
-        return Expr("INT", False)
+        return Expr("INT")
     elif self.check_expressions(["<postfiks_izraz>", "OP_DEC"]):
-      exp = self.postfiks_izraz()
+      expr = self.postfiks_izraz()
       self.assert_leaf("OP_DEC")
-      if not exp.is_lexpr() or not exp.is_type("INT"):
-        return self.parse_error()
+      if not exp.is_lexpr() or not expr == Expr("INT"):
+        return self.parse_error(curr_line)
       else:
-        return Expr("INT", False)
+        return Expr("INT")
+    elif self.check_expressions(["<primarni_izraz>"]):
+      return self.primarni_izraz()
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """LISTA ARGUMENATA"""
   def lista_argumenata(self):
+    curr_line = self.lines._iter
     pprint("# lista_argumenata")
     pprint(self.lines.get_line())
 
@@ -164,10 +173,11 @@ class SemantickiAnalizator:
       self.assert_leaf("ZAREZ")
       return expr.append(self.izraz_pridruzivanja())
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """UNARNI IZRAZ"""
   def unarni_izraz(self):
+    curr_line = self.lines._iter
     pprint("# unarni_izraz")
     pprint(self.lines.get_line())
 
@@ -176,28 +186,29 @@ class SemantickiAnalizator:
     elif self.check_expressions(["OP_DEC", "<unarni_izraz>"]):
       self.assert_leaf("OP_DEC")
       expr = self.unarni_izraz()
-      if not expr.is_lexpr() or not expr.is_type("INT"):
-        return self.parse_error()
+      if not expr.is_lexpr() or not expr == Expr("INT"):
+        return self.parse_error(curr_line)
       else:
-        return Expr("INT", False)
+        return Expr("INT")
     elif self.check_expressions(["OP_INC", "<unarni_izraz>"]):
       self.assert_leaf("OP_INC")
       expr = self.unarni_izraz()
-      if not expr.is_lexpr() or not expr.is_type("INT"):
-        return self.parse_error()
+      if not expr.is_lexpr() or not expr == Expr("INT"):
+        return self.parse_error(curr_line)
       else:
-        return Expr("INT", False)
+        return Expr("INT")
     elif self.check_expressions(["<unarni_operator>", "<cast_izraz>"]):
       expr = self.cast_izraz()
-      if not expr.is_type("INT"):
-        return self.parse_error()
+      if not expr == Expr("INT"):
+        return self.parse_error(curr_line)
       else:
-        return Expr("INT", False)
+        return Expr("INT")
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """UNARNI OPERATOR"""
   def unarni_operator(self):
+    curr_line = self.lines._iter
     pprint("# unarni_operator")
     pprint(self.lines.get_line())
 
@@ -214,10 +225,11 @@ class SemantickiAnalizator:
       self.assert_leaf("OP_NEG")
       return
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """CAST IZRAZ"""
   def cast_izraz(self):
+    curr_line = self.lines._iter
     pprint("# cast_izraz")
     pprint(self.lines.get_line())
 
@@ -229,12 +241,13 @@ class SemantickiAnalizator:
       self.assert_leaf("D_ZAGRADA")
       expr2 = self.cast_izraz()
       if not self.can_cast(expr.get_type(), expr2.get_type()):
-        return self.parse_error()
+        return self.parse_error(curr_line)
       else:
-        return Expr(expr.get_type(), False)
+        return expr
 
   """IME TIPA"""
   def ime_tipa(self):
+    curr_line = self.lines._iter
     pprint("# ime_tipa")
     pprint(self.lines.get_line())
 
@@ -243,32 +256,34 @@ class SemantickiAnalizator:
     elif self.check_expressions(["KR_CONST", "<specifikator_tipa>"]):
       self.assert_leaf("KR_CONST")
       expr = self.specifikator_tipa()
-      if expr.is_type("VOID"):
-        return self.parse_error()
+      if expr == Expr("VOID"):
+        return self.parse_error(curr_line)
       else:
-        return Expr(expr.get_type(), is_const = True)
+        return expr.set_to_const()
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """SPECIFIKATOR TIPA"""
   def specifikator_tipa(self):
+    curr_line = self.lines._iter
     pprint("# specifikator_tipa")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["KR_VOID"]):
       self.assert_leaf("KR_VOID", "void")
-      return Expr("VOID", False)
+      return Expr("VOID")
     elif self.check_expressions(["KR_CHAR"]):
       self.assert_leaf("KR_CHAR", "char")
-      return Expr("CHAR", False)
+      return Expr("CHAR")
     elif self.check_expressions(["KR_INT"]):
       self.assert_leaf("KR_INT", "int")
-      return Expr("INT", False)
+      return Expr("INT")
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """MULTIPLIKATIVNI IZRAZ"""
   def multiplikativni_izraz(self):
+    curr_line = self.lines._iter
     pprint("# multiplikativni_izraz")
     pprint(self.lines.get_line())
 
@@ -281,10 +296,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<multiplikativni_izraz>", "OP_MOD", "<cast_izraz>"]):
       return self.check_both_for_int_and_return_int(self.multiplikativni_izraz, "OP_MOD", self.cast_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """ADITIVNI IZRAZ"""
   def aditivni_izraz(self):
+    curr_line = self.lines._iter
     pprint("# aditivni_izraz")
     pprint(self.lines.get_line())
 
@@ -295,10 +311,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<aditivni_izraz>", "MINUS", "<multiplikativni_izraz>"]):
       return self.check_both_for_int_and_return_int(self.aditivni_izraz, "MINUS", self.multiplikativni_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """ODNOSNI IZRAZ"""
   def odnosni_izraz(self):
+    curr_line = self.lines._iter
     pprint("# odnosni_izraz")
     pprint(self.lines.get_line())
 
@@ -313,10 +330,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<odnosni_izraz>", "OP_GTE", "<aditivni_izraz>"]):
       return self.check_both_for_int_and_return_int(self.odnosni_izraz, "OP_GTE" , self.aditivni_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """JEDNAKOSNI IZRAZ"""
   def jednakosni_izraz(self):
+    curr_line = self.lines._iter
     pprint("# jednakosni_izraz")
     pprint(self.lines.get_line())
 
@@ -327,10 +345,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<jednakosni_izraz>", "OP_NEQ", "<odnosni_izraz>"]):
       return self.check_both_for_int_and_return_int(self.jednakosni_izraz, "OP_NEQ", self.odnosni_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """BIN I IZRAZ"""
   def bin_i_izraz(self):
+    curr_line = self.lines._iter
     pprint("# bin_i_izraz")
     pprint(self.lines.get_line())
 
@@ -339,10 +358,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<bin_i_izraz>", "OP_BIN_I", "<jednakosni_izraz>"]):
       return self.check_both_for_int_and_return_int(self.bin_i_izraz, "OP_BIN_I", self.jednakosni_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """BIN XILI IZRAZ"""
   def bin_xili_izraz(self):
+    curr_line = self.lines._iter
     pprint("# bin_xili_izraz")
     pprint(self.lines.get_line())
 
@@ -351,10 +371,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<bin_xili_izraz>", "OP_BIN_XILI", "<bin_i_izraz>"]):
       return self.check_both_for_int_and_return_int(self.bin_xili_izraz, "OP_BIN_XILI", self.bin_i_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """BIN ILI IZRAZ"""
   def bin_ili_izraz(self):
+    curr_line = self.lines._iter
     pprint("# bin_ili_izraz")
     pprint(self.lines.get_line())
 
@@ -363,10 +384,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<bin_ili_izraz>", "OP_BIN_ILI", "<bin_xili_izraz>"]):
       return self.check_both_for_int_and_return_int(self.bin_ili_izraz, "OP_BIN_ILI", self.bin_xili_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """LOG I IZRAZ"""
   def log_i_izraz(self):
+    curr_line = self.lines._iter
     pprint("# log_i_izraz")
     pprint(self.lines.get_line())
 
@@ -375,10 +397,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<log_i_izraz>", "OP_I", "<bin_ili_izraz>"]):
       return self.check_both_for_int_and_return_int(self.log_i_izraz, "OP_I", self.bin_xili_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """LOG ILI IZRAZ"""
   def log_ili_izraz(self):
+    curr_line = self.lines._iter
     pprint("# log_ili_izraz")
     pprint(self.lines.get_line())
 
@@ -387,10 +410,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<log_ili_izraz>", "OP_ILI", "<log_i_izraz>"]):
       return self.check_both_for_int_and_return_int(self.log_ili_izraz, "OP_ILI", self.log_i_izraz)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """IZRAZ PRIDRUZIVANJA"""
   def izraz_pridruzivanja(self):
+    curr_line = self.lines._iter
     pprint("# izraz_pridruzivanja")
     pprint(self.lines.get_line())
 
@@ -399,17 +423,18 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<postfiks_izraz>", "OP_PRIDRUZI", "<izraz_pridruzivanja>"]):
       expr = self.postfiks_izraz()
       if not expr.is_lexpr():
-        return self.parse_error()
+        return self.parse_error(curr_line)
       self.assert_leaf("OP_PRIDRUZI")
       expr2 = self.izraz_pridruzivanja()
-      if not expr.is_type(expr2.get_type()):
-        return self.parse_error()
-      return Expr(expr.get_type())
+      if not expr == expr2:
+        return self.parse_error(curr_line)
+      return expr
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """IZRAZ"""
   def izraz(self):
+    curr_line = self.lines._iter
     pprint("# izraz")
     pprint(self.lines.get_line())
 
@@ -418,7 +443,7 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<izraz>", "ZAREZ", "<izraz_pridruzivanja>"]):
       self.izraz()
       self.assert_leaf("ZAREZ")
-      return Expr(izraz_pridruzivanja().get_type())
+      return izraz_pridruzivanja()
 
 
 ##################################
@@ -427,6 +452,7 @@ class SemantickiAnalizator:
 
   """SLOZENA NAREDBA"""
   def slozena_naredba(self, in_loop = False, in_function = False, function_to = []):
+    curr_line = self.lines._iter
     pprint("# slozena_naredba")
     pprint(self.lines.get_line())
 
@@ -441,10 +467,11 @@ class SemantickiAnalizator:
       self.lista_naredbi(in_loop = in_loop, in_function = in_function, function_to = function_to)
       self.assert_leaf("D_VIT_ZAGRADA")
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """LISTA NAREDBI"""
   def lista_naredbi(self, in_loop = False, in_function = False, function_to = []):
+    curr_line = self.lines._iter
     pprint("# lista_naredbi")
     pprint(self.lines.get_line())
 
@@ -454,10 +481,11 @@ class SemantickiAnalizator:
       self.lista_naredbi(in_loop = in_loop, in_function = in_function, function_to = function_to)
       self.naredba(in_loop = in_loop, in_function = in_function, function_to = function_to)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """NAREDBA"""
   def naredba(self, in_loop = False, in_function = False, function_to = []):
+    curr_line = self.lines._iter
     pprint("# naredba")
     pprint(self.lines.get_line())
 
@@ -472,10 +500,11 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<naredba_skoka>"]):
       self.naredba_skoka(in_loop = in_loop, in_function = in_function, function_to = function_to)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """IZRAZ NAREDBA"""
   def izraz_naredba(self):
+    curr_line = self.lines._iter
     pprint("# izraz_naredba")
     pprint(self.lines.get_line())
 
@@ -485,12 +514,13 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<izraz>", "TOCKAZAREZ"]):
       expr = self.izraz()
       self.assert_leaf("TOCKAZAREZ")
-      return Expr(expr.get_type())
+      return expr
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """NAREDBA GRANANJA"""
   def naredba_grananja(self, in_loop = False, in_function = False, function_to = []):
+    curr_line = self.lines._iter
     pprint("# naredba_grananja")
     pprint(self.lines.get_line())
 
@@ -498,34 +528,34 @@ class SemantickiAnalizator:
       self.assert_leaf("KR_IF")
       self.assert_leaf("L_ZAGRADA")
       expr = self.izraz()
-      pprint(expr.get_type())
-      if not expr.is_type("INT"):
-        return self.parse_error()
+      if not expr == Expr("INT"):
+        return self.parse_error(curr_line)
       self.assert_leaf("D_ZAGRADA")
       self.naredba(in_loop = in_loop, in_function = in_function, function_to = function_to)
     elif self.check_expressions(["KR_IF", "L_ZAGRADA", "<izraz>"
                                 ,"D_ZAGRADA", "<naredba>", "KR_ELSE", "<naredba>"]):
       self.assert_leaf("KR_IF")
       self.assert_leaf("L_ZAGRADA")
-      if not self.izraz().is_type("INT"):
-        return self.parse_error()
+      if not self.izraz() == Expr("INT"):
+        return self.parse_error(curr_line)
       self.assert_leaf("D_ZAGRADA")
       self.naredba(in_loop = in_loop, in_function = in_function, function_to = function_to)
       self.assert_leaf("KR_ELSE")
       self.naredba(in_loop = in_loop, in_function = in_function, function_to = function_to)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """NAREDBA PETLJE"""
   def naredba_petlje(self, in_loop = False, in_function = False, function_to = []):
+    curr_line = self.lines._iter
     pprint("# naredba_petlje")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["KR_WHILE", "L_ZAGRADA", "<izraz>", "D_ZAGRADA", "<naredba>"]):
       self.assert_leaf("KR_WHILE")
       self.assert_leaf("L_ZAGRADA")
-      if not self.izraz().is_type("INT"):
-        return self.parse_error()
+      if not self.izraz() == Expr("INT"):
+        return self.parse_error(curr_line)
       self.assert_leaf("D_ZAGRADA")
       self.naredba(in_loop = True, in_function = in_function, function_to = function_to)
     elif self.check_expressions(["KR_FOR", "L_ZAGRADA", "<izraz_naredba>", "<izraz_naredba>"
@@ -533,8 +563,8 @@ class SemantickiAnalizator:
       self.assert_leaf("KR_FOR")
       self.assert_leaf("L_ZAGRADA")
       self.izraz_naredba()
-      if not self.izraz_naredba().is_type("INT"):
-        return self.parse_error()
+      if not self.izraz_naredba() == Expr("INT"):
+        return self.parse_error(curr_line)
       self.assert_leaf("D_ZAGRADA")
       self.naredba(in_loop = True, in_function = in_function, function_to = function_to)
     elif self.check_expressions(["KR_FOR", "L_ZAGRADA", "<izraz_naredba>", "<izraz_naredba>"
@@ -542,47 +572,49 @@ class SemantickiAnalizator:
       self.assert_leaf("KR_FOR")
       self.assert_leaf("L_ZAGRADA")
       self.izraz_naredba()
-      if not self.izraz_naredba().is_type("INT"):
-        return self.parse_error()
+      if not self.izraz_naredba() == Expr("INT"):
+        return self.parse_error(curr_line)
       self.izraz()
       self.assert_leaf("D_ZAGRADA")
       self.naredba(in_loop = True, in_function = in_function, function_to = function_to)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """NAREDBA SKOKA"""
   def naredba_skoka(self, in_loop = False, in_function = False, function_to = []):
+    curr_line = self.lines._iter
     pprint("# naredba_skoka")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["KR_CONTINUE", "TOCKAZAREZ"]):
       if not in_loop:
-        self.parse_error()
+        return self.parse_error(curr_line)
       self.assert_leaf("KR_CONTINUE")
       self.assert_leaf("TOCKAZAREZ")
       return
     if self.check_expressions(["KR_BREAK", "TOCKAZAREZ"]):
       if not in_loop:
-        self.parse_error()
+        return self.parse_error(curr_line)
       self.assert_leaf("KR_BREAK")
       self.assert_leaf("TOCKAZAREZ")
       return
     elif self.check_expressions(["KR_RETURN", "TOCKAZAREZ"]):
       if not in_function or not function_to == "VOID":
-        self.parse_error()
+        return self.parse_error(curr_line)
       self.assert_leaf("KR_RETURN")
       self.assert_leaf("TOCKAZAREZ")
-      return
     elif self.check_expressions(["KR_RETURN", "<izraz>", "TOCKAZAREZ"]):
       self.assert_leaf("KR_RETURN")
       expr = self.izraz()
-      if not in_function or not expr.is_type(function_to):
-        self.parse_error()
+      if not in_function:
+        return self.parse_error(curr_line)
+      if not [expr] == function_to:
+        return self.parse_error(curr_line)
       self.assert_leaf("TOCKAZAREZ")
-      return
 
   """PRIJEVODNA JEDINICA"""
   def prijevodna_jedinica(self):
+    curr_line = self.lines._iter
     pprint("# prijevodna_jedinica")
     pprint(self.lines.get_line())
 
@@ -594,19 +626,21 @@ class SemantickiAnalizator:
       self.prijevodna_jedinica()
       self.vanjska_deklaracija()
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """VANJSKA DEKLARACIJA"""
   def vanjska_deklaracija(self):
+    curr_line = self.lines._iter
     pprint("# vanjska_deklaracija")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<definicija_funkcije>"]):
       self.definicija_funkcije()
     elif self.check_expressions(["<deklaracija>"]):
+      pprint("# vanjska_deklaracija")
       self.deklaracija()
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
 ##############################
 ## DEKLARACIJE I DEFINICIJE ##
@@ -614,6 +648,7 @@ class SemantickiAnalizator:
 
   """DEFINICIJA FUNKCIJE"""
   def definicija_funkcije(self):
+    curr_line = self.lines._iter
     pprint("# definicija_funkcije")
     pprint(self.lines.get_line())
 
@@ -622,93 +657,105 @@ class SemantickiAnalizator:
       ## 1
       expr = self.ime_tipa()
       ## 2
-      if expr.is_const():
-        return self.parse_error()
+      if expr.is_const:
+        return self.parse_error(curr_line)
       idn = self.assert_leaf("IDN")
       ## 3
       if self.table.contains(idn) and self.table.is_defined(idn):
-        return self.parse_error()
+        return self.parse_error(curr_line)
       ## 4
-      if self.table.is_declared(idn, ["VOID"], expr.get_type()):
-        return self.parse_error()
+      if self.table.is_declared(idn, [Expr("VOID")], [expr]):
+        return self.parse_error(curr_line)
       ## 5
-      if not self.table.is_declared(idn, ["VOID"], expr.get_type()):
-        self.table.declare(idn, ["VOID"], expr.get_type())
-      if not self.table.is_defined(idn, ["VOID"], expr.get_type()):
-        self.table.define(idn, ["VOID"], expr.get_type())
+      if not self.table.is_declared(idn, [Expr("VOID")], [expr]):
+        self.table.declare_fun(idn, [Expr("VOID")], [expr])
+      if not self.table.is_defined(idn, [Expr("VOID")], [expr]):
+        self.table.define(idn, [Expr("VOID")], [expr])
       ## X
       self.assert_leaf("L_ZAGRADA")
       self.assert_leaf("KR_VOID")
       self.assert_leaf("D_ZAGRADA")
       ## 6
-      self.slozena_naredba(in_function = True, function_to = expr.get_type())
+      self.slozena_naredba(in_function = True, function_to = [expr])
     elif self.check_expressions(["<ime_tipa>", "IDN", "L_ZAGRADA", "<lista_parametara>", "D_ZAGRADA"
                                , "<slozena_naredba>"]):
       ## 1
       expr = self.ime_tipa()
       ## 2
-      if expr.is_const():
-        return self.parse_error()
+      if expr.is_const:
+        return self.parse_error(curr_line)
       idn = self.assert_leaf("IDN")
       ## 3
       if self.table.contains(idn) and self.table.is_defined(idn):
-        return self.parse_error()
+        return self.parse_error(curr_line)
       ## X
       self.assert_leaf("L_ZAGRADA")
       ## 4
-      expr2 = lista_parametara()
+      types, names = self.lista_parametara()
+      ## 4 . continued
+      ### Addomg types+names to scope (no scoping implemented yet)
+      for i, name in enumerate(names):
+        self.table.declare_var(name, types[i])
       ## 5
-      if self.table.is_declared(idn) and \
-          not (self.table.is_function_from(idn, expr2.get_type()) \
-            and self.table.is_function_to(idn, expr.get_type())):
-        return self.parse_error()
+      if self.table.is_declared(idn, types, [expr]):
+        return self.parse_error(curr_line)
       ## 6
-      if not self.table.is_declared(idn, expr2.get_type(), expr.get_type()):
-        self.table.declare(idn, expr2.get_type(), expr.get_type())
-      if not self.table.is_defined(idn, expr2.get_type(), expr.get_type()):
-        self.table.define(idn, expr2.get_type(), expr.get_type())
+      if not self.table.is_declared(idn, types, [expr]):
+        self.table.declare_fun(idn, types, [expr])
+      if not self.table.is_defined(idn, types, [expr]):
+        self.table.define(idn, types, [expr])
       ## X
       self.assert_leaf("D_ZAGRADA")
       ## 7 !!! Careful about function parameters. Should be implemented (i think)
-      self.slozena_naredba(in_function = True, function_to = expr.get_type())
+      pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+      pprint(expr)
+      self.slozena_naredba(in_function = True, function_to = [expr])
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """LISTA PARAMETARA"""
   def lista_parametara(self):
+    curr_line = self.lines._iter
     pprint("# lista_parametara")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<deklaracija_parametra>"]):
-      return deklaracija_parametra()
+      tip, ime = self.deklaracija_parametra()
+      return [tip], [ime]
     elif self.check_expressions(["<lista_parametara>", "ZAREZ", "<deklaracija_parametra>"]):
-      tipovi, imena = lista_parametara()
+      tipovi, imena = self.lista_parametara()
       self.assert_leaf("ZAREZ")
-      tip, ime = deklaracija_parametra()
-      return tipovi.append(tip), imena.append(ime)
+      tip, ime = self.deklaracija_parametra()
+      return tipovi + tip, imena + ime
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   """DEKLARACIJA PARAMETRA"""
   def deklaracija_parametra(self):
+    curr_line = self.lines._iter
     pprint("# deklaracija_parametra")
     pprint(self.lines.get_line())
 
-    if self.check_expressions(["<ime_tipa>", "IDN"]):
-      raise Exception("Not yet implemented")
-      expr = ime_tipa()
-      if expr.is_type("VOID"):
-        return self.parse_error()
-      return expr.get_type(), assert_leaf("IDN")
-    elif self.check_expressions(["<ime_tipa>", "IDN", "L_UGL_ZAGRADA", "D_UGL_ZAGRADA"]):
-      raise Exception("Not yet implemented")
-      expr = ime_tipa()
-      if expr.is_type("VOID"):
-        return self.parse_error()
-      return Expr(expr.get_type(), is_array = True)
+    if self.check_expressions(["<ime_tipa>", "IDN", "L_UGL_ZAGRADA", "D_UGL_ZAGRADA"]):
+      expr = self.ime_tipa()
+      if expr == Expr("VOID"):
+        return self.parse_error(curr_line)
+      idn =  self.assert_leaf("IDN")
+      self.assert_leaf("L_UGL_ZAGRADA")
+      self.assert_leaf("D_UGL_ZAGRADA")
+      return expr.set_to_array(), idn
+    elif self.check_expressions(["<ime_tipa>", "IDN"]):
+      expr = self.ime_tipa()
+      if expr == Expr("VOID"):
+        return self.parse_error(curr_line)
+      idn = self.assert_leaf("IDN")
+      return expr, idn
+    else:
+      return self.parse_error(curr_line)
 
   """LISTA DEKLARACIJA"""
   def lista_deklaracija(self):
+    curr_line = self.lines._iter
     pprint("# lista_deklaracija")
     pprint(self.lines.get_line())
 
@@ -718,74 +765,143 @@ class SemantickiAnalizator:
       self.lista_deklaracija()
       self.deklaracija()
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   def deklaracija(self):
+    curr_line = self.lines._iter
     pprint("# deklaracija")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<ime_tipa>", "<lista_init_deklaratora>", "TOCKAZAREZ"]):
-      raise Exception("Not implemented")
       expr = self.ime_tipa()
-      expr2 = self.lista_init_deklaratora()
+      self.lista_init_deklaratora(expr)
+      self.assert_leaf("TOCKAZAREZ")
       return
 
-  def lista_init_deklaratora(self):
+  def lista_init_deklaratora(self, inherited_type):
+    curr_line = self.lines._iter
     pprint("# lista_init_deklaratora")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<init_deklarator>"]):
-      raise Exception("Not implemented")
+      self.init_deklarator(inherited_type)
     elif self.check_expressions(["<lista_init_deklaratora>", "ZAREZ", "<init_deklarator>"]):
-      raise Exception("Not implemented")
+      self.lista_init_deklaratora(inherited_type)
+      self.assert_leaf("ZAREZ")
+      self.init_deklarator(inherited_type)
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
-  def init_deklarator(self):
+  def init_deklarator(self, inherited_type):
+    curr_line = self.lines._iter
     pprint("# init_deklarator")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<izravni_deklarator>"]):
-      raise Exception("Not implemented")
+      expr, num = self.izravni_deklarator(inherited_type)
+      if expr.is_const:
+        return self.parse_error(curr_line)
     elif self.check_expressions(["<izravni_deklarator>", "OP_PRIDRUZI", "<inicijalizator>"]):
-      raise Exception("Not implemented")
+      expr, num = self.izravni_deklarator(inherited_type)
+      self.assert_leaf("OP_PRIDRUZI")
+      expr2, num2 = self.inicijalizator()
+      if not expr.is_array and not expr.is_function:
+        if not expr == expr2:
+          return self.parse_error(curr_line)
+      elif expr.is_array:
+        if not num >= num2:
+          return self.parse_error(curr_line)
+        raise Exception("Not sure what to do yet")
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
-  def izravni_deklarator(self):
+  def izravni_deklarator(self, inherited_type):
+    curr_line = self.lines._iter
     pprint("# izravni_deklarator")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["IDN"]):
-      raise Exception("Not implemented")
+      idn = self.assert_leaf("IDN")
+      if inherited_type == Expr("VOID"):
+        return self.parse_error(curr_line)
+      if self.table.contains(idn):
+        return self.parse_error(curr_line)
+      self.table.declare_var(idn, inherited_type)
+      ## Returning false to know that it's not a declaration that returns a number as second arg
+      return Expr("EMPTY"), False
     elif self.check_expressions(["IDN", "L_UGL_ZAGRADA", "BROJ", "D_UGL_ZAGRADA"]):
-      raise Exception("Not implemented")
+      idn = self.assert_leaf("IDN")
+      if inherited_type == Expr("VOID"):
+        return self.parse_error(curr_line)
+      if self.table.contains(idn):
+        return self.parse_error(curr_line)
+      num = self.assert_leaf("BROJ")
+      if num < 0 or num > 1024:
+        return self.parse_error(curr_line)
+      self.table.declare_var(idn, inherited_type)
+      return inherited_type.set_to_array(), broj
     elif self.check_expressions(["IDN", "L_ZAGRADA", "KR_VOID", "D_ZAGRADA"]):
-      raise Exception("Not implemented")
+      idn = self.assert_leaf("IDN")
+      self.assert_leaf("L_ZAGRADA")
+      self.assert_leaf("KR_VOID")
+      self.assert_leaf("D_ZAGRADA")
+      if self.table.is_JUST_declared(idn) \
+          and not self.table.is_declared(idn, [Expr("VOID")], [inherited_type]):
+        return self.parse_error(curr_line)
+      elif not self.table.is_JUST_declared(idn):
+        self.table.declare_fun(idn, [Expr("VOID")], [inherited_type])
+      else:
+        pass # It means it's already declared and of same type
+      ## Returning false to know that it's not a declaration that returns a number as second arg
+      return Expr("VOID", is_function = True, fun_from = [Expr("VOID")], fun_to = [inherited_type]), False
     elif self.check_expressions(["IDN", "L_ZAGRADA", "<lista_parametara>", "D_ZAGRADA"]):
-      raise Exception("Not implemented")
+      idn = self.assert_leaf("IDN")
+      self.assert_leaf("L_ZAGRADA")
+      params = self.lista_parametara()
+      self.assert_leaf("D_ZAGRADA")
+      if self.table.is_JUST_declared(idn) \
+          and not self.table.is_declared(idn, params, [inherited_type]):
+        return self.parse_error(curr_line)
+      elif not self.table.is_JUST_declared(idn):
+        self.table.declare_fun(idn, params, [inherited_type])
+      else:
+        pass # It means it's already declared and of same type
+      ## Returning false to know that it's not a declaration that returns a number as second arg
+      return Expr("VOID", is_function = True, fun_from = params, fun_to = [inherited_type]), False
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   def inicijalizator(self):
+    curr_line = self.lines._iter
     pprint("# inicijalizator")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<izraz_pridruzivanja>"]):
-      raise Exception("Not implemented")
+      expr = self.izraz_pridruzivanja()
+      if expr == Expr("CHAR", is_array = True):
+        return Expr("CHAR", is_array = True), expr.array_length
+      else:
+        return expr, False
     elif self.check_expressions(["L_VIT_ZAGRADA", "<lista_izraza_pridruzivanja>", "D_VIT_ZAGRADA"]):
-      raise Exception("Not implemented")
+      self.assert_leaf("L_VIT_ZAGRADA")
+      expr = self.lista_izraza_pridruzivanja()
+      self.assert_leaf("D_VIT_ZAGRADA")
+      return expr
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
   def lista_izraza_pridruzivanja(self):
+    curr_line = self.lines._iter
     pprint("# lista_izraza_pridruzivanja")
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<izraz_pridruzivanja>"]):
-      raise Exception("Not implemented")
+      return [self.izraz_pridruzivanja()], 1
     elif self.check_expressions(["<lista_izraza_pridruzivanja>", "ZAREZ", "<izraz_pridruzivanja>"]):
-      raise Exception("Not implemented")
+      expr, num = self.lista_izraza_pridruzivanja()
+      self.assert_leaf("ZAREZ")
+      expr2 = self.izraz_pridruzivanja()
+      return expr.append(expr2), num + 1
     else:
-      return self.parse_error()
+      return self.parse_error(curr_line)
 
