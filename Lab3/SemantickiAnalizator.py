@@ -53,6 +53,24 @@ class SemantickiAnalizator:
     return fst_exp == snd_exp \
         or fst_exp == Expr("INT") and snd_exp == Expr("CHAR")
 
+  """POST TRAVERSAL CHECKS"""
+  def post_traversal_checks(self):
+    if not "main" in self.table._declared_functions \
+        or not "main" in self.table._defined_functions \
+        or not self.table._defined_functions["main"] == \
+            self.table._declared_functions["main"] \
+        or not self.table._defined_functions["main"]._function_from_types == \
+            [Expr("VOID")] \
+        or not self.table._defined_functions["main"]._function_to_types[0]._type == "INT":
+      print("main")
+      return True
+
+    for fun in self.table._declared_functions:
+      if not fun in self.table._defined_functions:
+        print("function")
+        return True
+    return False
+
   """START"""
   def start(self):
     #pprint("# Starting and checking for <prijevodna_jedinica>")
@@ -61,7 +79,10 @@ class SemantickiAnalizator:
     self.prijevodna_jedinica()
 
     if not self.terminate:
-      pprint("Succesful semantic analysis. No errors!")
+      if not self.post_traversal_checks():
+        pprint("Succesful semantic analysis. No errors!")
+      else:
+        pprint("Post traversal errors found!")
 
 ######################################
 ############### IZRAZI ###############
