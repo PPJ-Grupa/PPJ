@@ -5,7 +5,7 @@ from helpers import is_valid_char_array
 
 counter = 1
 def pprint(stri):
-  #return
+  return
   global counter
   if type(stri) is str and stri[0] == "#":
     print(",," + str(counter) + " " + stri)
@@ -831,11 +831,15 @@ class SemantickiAnalizator:
     pprint(self.lines.get_line())
 
     if self.check_expressions(["<izravni_deklarator>"]):
-      expr, num = self.izravni_deklarator(inherited_type)
+      tmp = self.izravni_deklarator(inherited_type)
+      if self.terminate: return tmp
+      expr, num = tmp
       if expr.is_const:
         return self.parse_error(curr_line)
     elif self.check_expressions(["<izravni_deklarator>", "OP_PRIDRUZI", "<inicijalizator>"]):
-      expr, num = self.izravni_deklarator(inherited_type)
+      tmp = self.izravni_deklarator(inherited_type)
+      if self.terminate: return tmp
+      expr, num = tmp
       self.assert_leaf("OP_PRIDRUZI")
       expr2, num2 = self.inicijalizator()
       if not expr.is_array and not expr2.is_function:
@@ -850,7 +854,6 @@ class SemantickiAnalizator:
         if type(expr2) is list:
           _expr = Expr(expr)
           _expr.is_array = False
-          [print(e) for e in expr2]
           for e in expr2:
             if not e == _expr:
               return self.parse_error(curr_line)

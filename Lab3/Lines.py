@@ -2,7 +2,7 @@ from helpers import *
 from Expr import Expr
 
 def pprint(stri):
-  #return
+  return
   print(stri)
 
 class Lines:
@@ -129,5 +129,5 @@ class Lines:
     print(final_output)
     self.terminate = True
     #print(prev_expr + " ::= " + exp + "(" + line_num + "," + name + ")")
-    raise Exception()
+    #raise Exception()
     return Expr("TEMINATE") #, Expr("TEMINATE"), Expr("TEMINATE")
