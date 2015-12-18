@@ -2,15 +2,20 @@ from helpers import *
 
 class Expr:
   def __eq__(self, other):
-    # and self.is_const == other.is_const \ can be implicitly converted    
+    # and self.is_const == other.is_const \ can be implicitly converted
+    # and self.is_lexpr == other.is_lexpr \    
     return isinstance(other, self.__class__) \
         and (self._type == other._type \
           or self._type == "INT" and other._type == "CHAR" \
           or self._type == "CHAR" and other._type == "INT") \
-        and self.is_lexpr == other.is_lexpr \
         and self.is_array == other.is_array and self.is_function == other.is_function \
         and self._function_from_types == other._function_from_types \
         and self._function_to_types == other._function_to_types
+  def __gt__(self, other):
+    return self._type > other._type or  self.is_lexpr  > other.is_lexpr \
+        or self.is_array > other.is_array or self.is_function > other.is_function \
+        or self._function_from_types > other._function_from_types \
+        or self._function_to_types > other._function_to_types 
   def __str__(self):
     ret = "Expr: t: " + self._type + ", le: " + str(self.is_lexpr) + ", arr: " + \
         str(self.is_array) + ", con: " + str(self.is_const) + ", f: " + \
@@ -34,7 +39,7 @@ class Expr:
     if not type(fun_to) is list:
       raise Exception("fun_to not list")
     if type(etype) is Expr:
-      self._type = etype.get_type()
+      self._type = etype._type
       self.is_lexpr = etype.is_lexpr
       self.is_const = etype.is_const
       self.is_array = etype.is_array
@@ -84,4 +89,7 @@ class Expr:
     return self
   def set_to_const(self):
     self.is_const = True
+    return self
+  def set_to_lexpr(self):
+    self.is_lexpr = True
     return self

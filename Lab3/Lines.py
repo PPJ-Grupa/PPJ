@@ -2,8 +2,8 @@ from helpers import *
 from Expr import Expr
 
 def pprint(stri):
-  return
-  pprint(stri)
+  #return
+  print(stri)
 
 class Lines:
   def __init__(self, lines):
@@ -54,7 +54,7 @@ class Lines:
     return expr
   """Check whether provided expressions exist at the current level"""
   def check_expressions(self, expressions):
-    pprint("check: " + str(expressions))
+    #pprint("check: " + str(expressions))
     original_iter = self._iter
     original_lvl = self.get_lvl()
     #print(self.get_lvl())
@@ -66,7 +66,7 @@ class Lines:
       next_in_lv = self.next_in_lvl(original_lvl + 1)
       if not next_in_lv == expr:
         self._iter = original_iter
-        pprint("should: " + expr + " but next in lvl (fls): " + next_in_lv)
+        #pprint("should: " + expr + " but next in lvl (fls): " + next_in_lv)
         return False
     ##check whether there should be a "bigger" production
     #print("debo")
@@ -81,7 +81,7 @@ class Lines:
     ## Reset iterator to previous (starting position) (since check_expressions)
     self._iter = original_iter
     self.next()
-    pprint("accepted: " + str(expressions))
+    #pprint("accepted: " + str(expressions))
     return True
 
   """Assert leaf"""
@@ -92,7 +92,7 @@ class Lines:
     _, _fst_exp, _, _snd_exp = extract_4(self.get_line())
     #if fst_exp == "D_VIT_ZAGRADA": raise Exception()
     if not _fst_exp == fst_exp:
-      pprint("fs: " + fst_exp + " _: " + _fst_exp)
+      #pprint("fs: " + fst_exp + " _: " + _fst_exp)
       return self.parse_error(curr_line)
     if not _snd_exp == snd_exp and not snd_exp == "":
       return self.parse_error(curr_line)
@@ -129,5 +129,5 @@ class Lines:
     print(final_output)
     self.terminate = True
     #print(prev_expr + " ::= " + exp + "(" + line_num + "," + name + ")")
-    #raise Exception()
+    raise Exception()
     return Expr("TEMINATE") #, Expr("TEMINATE"), Expr("TEMINATE")
