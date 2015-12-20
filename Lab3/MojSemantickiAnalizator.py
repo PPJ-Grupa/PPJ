@@ -1,7 +1,7 @@
 from Table import Table
 from Expr import Expr
 from Lines import Lines
-from helpers import is_valid_char_array
+from helpers import is_valid_char_array, calculate_padding
 
 counter = 1
 def pprint(stri):
@@ -17,9 +17,12 @@ def pprint(stri):
 class SemantickiAnalizator:
   """INIT"""
   def __init__(self, lines):
+    # Turn padding into preceding number
+    lines = [ str(calculate_padding(line)) + ' ' + line.strip() for line in lines ]
     self.table = Table()
     self.lines = Lines(lines)
     self.terminate = False
+    self.result = ""
     return
 
   """CHECK EXPRESSIONS"""
@@ -71,8 +74,8 @@ class SemantickiAnalizator:
         return True
     return False
 
-  """START"""
-  def start(self):
+  """PARSE"""
+  def parse(self):
     #pprint("# Starting and checking for <prijevodna_jedinica>")
     self.check_expressions(["<prijevodna_jedinica>"])
     #pprint("Calling self.prijevodna_jedinica()")
@@ -83,6 +86,9 @@ class SemantickiAnalizator:
         pprint("Succesful semantic analysis. No errors!")
       else:
         pprint("Post traversal errors found!")
+
+    self.result = self.lines.result
+    return(self.result)
 
 ######################################
 ############### IZRAZI ###############
@@ -841,7 +847,9 @@ class SemantickiAnalizator:
       if self.terminate: return tmp
       expr, num = tmp
       self.assert_leaf("OP_PRIDRUZI")
-      expr2, num2 = self.inicijalizator()
+      tmp = self.inicijalizator()
+      if self.terminate: return tmp
+      expr2, num2 = tmp
       if not expr.is_array and not expr2.is_function:
         if not expr == expr2:
           return self.parse_error(curr_line)

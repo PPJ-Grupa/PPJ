@@ -10,6 +10,7 @@ class Lines:
     self._lines = lines
     self._iter = 0
     self.terminate = False
+    self.result = ""
   """Check whether iter is out of bounds"""
   def iter_outside(self):
     return self._iter < 0 or self._iter >= len(self._lines)
@@ -126,7 +127,8 @@ class Lines:
         else:
           final_output = final_output + " " + exp + "(" + line_num + "," + name + ")"
       self.next()
-    print(final_output)
+    #print(final_output)
+    self.result = final_output
     self.terminate = True
     #print(prev_expr + " ::= " + exp + "(" + line_num + "," + name + ")")
     #raise Exception()

@@ -1,6 +1,7 @@
 import re
 
 def calculate_padding(word):
+  #print(word)
   count = 0
   for c in word:
     if c == ' ':
