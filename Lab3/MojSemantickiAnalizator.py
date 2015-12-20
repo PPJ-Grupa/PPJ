@@ -58,20 +58,17 @@ class SemantickiAnalizator:
 
   """POST TRAVERSAL CHECKS"""
   def post_traversal_checks(self):
-    if not "main" in self.table._declared_functions \
-        or not "main" in self.table._defined_functions \
-        or not self.table._defined_functions["main"] == \
-            self.table._declared_functions["main"] \
-        or not self.table._defined_functions["main"]._function_from_types == \
-            [Expr("VOID")] \
-        or not self.table._defined_functions["main"]._function_to_types[0]._type == "INT":
-      print("main")
+    if not self.table.is_declared("main", [Expr("VOID")], [Expr("INT")]) \
+        or not "main" in self.table._scopes[0]['_functions'] \
+        or not self.table.get_function("main")._function_to_types[0]._type == "INT":
+      self.result = "main"
       return True
 
-    for fun in self.table._declared_functions:
-      if not fun in self.table._defined_functions:
-        print("function")
-        return True
+    for scope in self.table._scopes:
+      for function in scope['_functions']:
+        if not function in self.table._defined_functions:
+          self.result = "funkcija"
+          return True
     return False
 
   """PARSE"""
@@ -81,13 +78,14 @@ class SemantickiAnalizator:
     #pprint("Calling self.prijevodna_jedinica()")
     self.prijevodna_jedinica()
 
+    self.result = self.lines.result
+
     if not self.terminate:
       if not self.post_traversal_checks():
         pprint("Succesful semantic analysis. No errors!")
       else:
         pprint("Post traversal errors found!")
 
-    self.result = self.lines.result
     return(self.result)
 
 ######################################
@@ -498,10 +496,12 @@ class SemantickiAnalizator:
       self.assert_leaf("D_VIT_ZAGRADA")
     elif self.check_expressions(["L_VIT_ZAGRADA", "<lista_deklaracija>", "<lista_naredbi>"
                                , "D_VIT_ZAGRADA"]):
+      self.table.create_new_scope() #### SCOPING!!!!!!!!
       self.assert_leaf("L_VIT_ZAGRADA")
       self.lista_deklaracija()
       self.lista_naredbi(in_loop = in_loop, in_function = in_function, function_to = function_to)
       self.assert_leaf("D_VIT_ZAGRADA")
+      self.table.destroy_current_scope() #### SCOPING!!!!!!!!
     else:
       return self.parse_error(curr_line)
 
@@ -721,31 +721,36 @@ class SemantickiAnalizator:
       if expr.is_const:
         return self.parse_error(curr_line)
       idn = self.assert_leaf("IDN")
-      ## 3
-      if self.table.contains(idn) and self.table.is_defined(idn):
-        return self.parse_error(curr_line)
       ## X
       self.assert_leaf("L_ZAGRADA")
       ## 4
       types, names = self.lista_parametara()
-      ## 4 . continued
-      ### Addomg types+names to scope (no scoping implemented yet)
-      for i, name in enumerate(names):
-        self.table.declare_var(name, types[i])
       ## 5
       if self.table.is_declared(idn, types, [expr]):
+        return self.parse_error(curr_line)
+      ## 3
+      if self.table.contains(idn) or self.table.is_defined(idn, types, [expr]):
         return self.parse_error(curr_line)
       ## 6
       if not self.table.is_declared(idn, types, [expr]):
         self.table.declare_fun(idn, types, [expr])
       if not self.table.is_defined(idn, types, [expr]):
         self.table.define(idn, types, [expr])
+
+      #### SCOPING!!!!!!!!
+      self.table.create_new_scope() #### SCOPING!!!!!!!!
+      ## 4 . continued
+      ### Addomg types+names to scope (no scoping implemented yet)
+      for i, name in enumerate(names):
+        self.table.declare_var(name, types[i])
       ## X
       self.assert_leaf("D_ZAGRADA")
       ## 7 !!! Careful about function parameters. Should be implemented (i think)
       pprint("!!!!!!!!!!!!!!!!!!!!!!!!!!!")
       pprint(expr)
       self.slozena_naredba(in_function = True, function_to = [expr])
+
+      self.table.destroy_current_scope() #### SCOPING!!!!!!!!
     else:
       return self.parse_error(curr_line)
 
