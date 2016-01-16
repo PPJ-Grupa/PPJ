@@ -477,7 +477,7 @@ class SemantickiAnalizator:
     elif self.check_expressions(["<izraz>", "ZAREZ", "<izraz_pridruzivanja>"]):
       self.izraz()
       self.assert_leaf("ZAREZ")
-      return izraz_pridruzivanja()
+      return self.izraz_pridruzivanja()
 
 
 ##################################
