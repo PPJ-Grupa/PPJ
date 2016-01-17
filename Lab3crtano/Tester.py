@@ -1,7 +1,6 @@
 import fileinput
 import os
-from  FinalCodeGenerator import SemantickiAnalizator
-#ideja je zapravo sve 'ispoèetka' napisati u ovom folderu novo
+from MojSemantickiAnalizator import SemantickiAnalizator
 
 def getf(getFile, fromWhere):
   return [ fromWhere + '\\' + file for file in os.listdir(fromWhere) if getFile == ('.' in file)]

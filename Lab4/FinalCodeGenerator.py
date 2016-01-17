@@ -2,6 +2,10 @@ from Table import Table
 from Expr import Expr
 from Lines import Lines
 from helpers import is_valid_char_array, calculate_padding
+from OutputCode import *
+
+outputCode = OutputCode()
+currFunction = 'F_MAIN' #u koju funkciju trenutno zapisujemo naredbe
 
 counter = 1
 def pprint(stri):
@@ -86,7 +90,8 @@ class SemantickiAnalizator:
       else:
         pprint("Post traversal errors found!")
 
-    return(self.result)
+    # e ne cemo to
+    return outputCode.generateOutputProgramm()
 
 ######################################
 ############### IZRAZI ###############
@@ -107,6 +112,8 @@ class SemantickiAnalizator:
         return self.parse_error(curr_line)
     elif self.check_expressions(["BROJ"]):
       expr = self.assert_leaf("BROJ")
+      num = int(expr)
+      outputCode.addCommandToFunction(currFunction, 'MOVE %D {}, R1'.format(num))
       if int(expr) < -2**31 or int(expr) >= 2**31:
         return self.parse_error(curr_line)
       return Expr("INT")
@@ -642,6 +649,7 @@ class SemantickiAnalizator:
     elif self.check_expressions(["KR_RETURN", "<izraz>", "TOCKAZAREZ"]):
       self.assert_leaf("KR_RETURN")
       expr = self.izraz()
+      outputCode.addCommandToFunction(currFunction, 'MOVE R1, R6')
       if not in_function:
         return self.parse_error(curr_line)
       if not [expr] == function_to:

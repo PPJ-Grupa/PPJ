@@ -3,14 +3,6 @@ from Expr import Expr
 from Lines import Lines
 from helpers import is_valid_char_array, calculate_padding
 
-'''
-zamislio sam da ovo mijenjamo inkrementalno, to je trenutno ono trenutno
-isti fajl kao Ditin MojSemantickiAnalizator
-Ako cemo uopce moc tako radit.
-'''
-
-
-
 counter = 1
 def pprint(stri):
   return
@@ -650,6 +642,7 @@ class SemantickiAnalizator:
     elif self.check_expressions(["KR_RETURN", "<izraz>", "TOCKAZAREZ"]):
       self.assert_leaf("KR_RETURN")
       expr = self.izraz()
+      print(expr)
       if not in_function:
         return self.parse_error(curr_line)
       if not [expr] == function_to:
