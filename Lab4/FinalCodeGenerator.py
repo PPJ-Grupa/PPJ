@@ -3,9 +3,12 @@ from Expr import Expr
 from Lines import Lines
 from helpers import is_valid_char_array, calculate_padding
 from OutputCode import *
-
+# dodao sam tamo kod pridruzivanja, MOVE R1, R6 sad kolko je to pametno, vjerojatno nije
 outputCode = OutputCode()
 currFunction = 'F_MAIN' #u koju funkciju trenutno zapisujemo naredbe
+currLabel = None
+currSign = 1
+currRegister = None
 
 counter = 1
 def pprint(stri):
@@ -102,18 +105,28 @@ class SemantickiAnalizator:
     pprint("# primarni_izraz")
     pprint(self.lines.get_line())
 
+
     if self.check_expressions(["IDN"]):
       idn = self.assert_leaf("IDN")
+
       if self.table.contains(idn):
-        return self.table.get_var(idn)
+
+        idnValue = self.table.get_var(idn)
+        currRegister = outputCode.registers[idn]
+        nameReg = 'R' + str(currRegister)
+        outputCode.addCommandToFunction(currFunction, 'MOVE {}, R6'.format(nameReg))
+        # zapravo, mozemo ovo ostavit al treba nam i stog, za zbrajanje itd.
+        outputCode.addCommandToFunction(currFunction, 'PUSH R6')
+        return idnValue
       elif self.table.is_JUST_declared(idn):
         return self.table.get_function(idn)
       else:
         return self.parse_error(curr_line)
     elif self.check_expressions(["BROJ"]):
+      global currLabel
       expr = self.assert_leaf("BROJ")
       num = int(expr)
-      outputCode.addCommandToFunction(currFunction, 'MOVE %D {}, R1'.format(num))
+      currLabel = outputCode.generateLabel( "`DW %D {}".format( num*currSign ) ) # sazad tu pisemo dw, stas
       if int(expr) < -2**31 or int(expr) >= 2**31:
         return self.parse_error(curr_line)
       return Expr("INT")
@@ -257,6 +270,8 @@ class SemantickiAnalizator:
       self.assert_leaf("PLUS")
       return
     elif self.check_expressions(["MINUS"]):
+      global currSign
+      currSign = -1
       self.assert_leaf("MINUS")
       return
     elif self.check_expressions(["OP_TILDA"]):
@@ -348,9 +363,19 @@ class SemantickiAnalizator:
     if self.check_expressions(["<multiplikativni_izraz>"]):
       return self.multiplikativni_izraz()
     elif self.check_expressions(["<aditivni_izraz>", "PLUS", "<multiplikativni_izraz>"]):
-      return self.check_both_for_int_and_return_int(curr_line, self.aditivni_izraz, "PLUS", self.multiplikativni_izraz)
+
+      self.check_both_for_int_and_return_int(curr_line, self.aditivni_izraz, "PLUS", self.multiplikativni_izraz)
+      outputCode.addCommandToFunction(currFunction, 'POP R1')
+      outputCode.addCommandToFunction(currFunction, 'POP R0')
+      outputCode.addCommandToFunction(currFunction, 'ADD R0, R1, R6')
+      return
     elif self.check_expressions(["<aditivni_izraz>", "MINUS", "<multiplikativni_izraz>"]):
-      return self.check_both_for_int_and_return_int(curr_line, self.aditivni_izraz, "MINUS", self.multiplikativni_izraz)
+
+      self.check_both_for_int_and_return_int(curr_line, self.aditivni_izraz, "MINUS", self.multiplikativni_izraz)
+      outputCode.addCommandToFunction(currFunction, 'POP R1')
+      outputCode.addCommandToFunction(currFunction, 'POP R0')
+      outputCode.addCommandToFunction(currFunction, 'SUB R0, R1, R6')
+      return
     else:
       return self.parse_error(curr_line)
 
@@ -397,7 +422,11 @@ class SemantickiAnalizator:
     if self.check_expressions(["<jednakosni_izraz>"]):
       return self.jednakosni_izraz()
     elif self.check_expressions(["<bin_i_izraz>", "OP_BIN_I", "<jednakosni_izraz>"]):
-      return self.check_both_for_int_and_return_int(curr_line, self.bin_i_izraz, "OP_BIN_I", self.jednakosni_izraz)
+      self.check_both_for_int_and_return_int(curr_line, self.bin_i_izraz, "OP_BIN_I", self.jednakosni_izraz)
+      outputCode.addCommandToFunction(currFunction, 'POP R1')
+      outputCode.addCommandToFunction(currFunction, 'POP R0')
+      outputCode.addCommandToFunction(currFunction, 'AND R0, R1, R6')
+      return #self.check_both_for_int_and_return_int(curr_line, self.bin_i_izraz, "OP_BIN_I", self.jednakosni_izraz)
     else:
       return self.parse_error(curr_line)
 
@@ -423,7 +452,11 @@ class SemantickiAnalizator:
     if self.check_expressions(["<bin_xili_izraz>"]):
       return self.bin_xili_izraz()
     elif self.check_expressions(["<bin_ili_izraz>", "OP_BIN_ILI", "<bin_xili_izraz>"]):
-      return self.check_both_for_int_and_return_int(curr_line, self.bin_ili_izraz, "OP_BIN_ILI", self.bin_xili_izraz)
+      self.check_both_for_int_and_return_int(curr_line, self.bin_ili_izraz, "OP_BIN_ILI", self.bin_xili_izraz)
+      outputCode.addCommandToFunction(currFunction, 'POP R1')
+      outputCode.addCommandToFunction(currFunction, 'POP R0')
+      outputCode.addCommandToFunction(currFunction, 'OR R0, R1, R6')
+      return #
     else:
       return self.parse_error(curr_line)
 
@@ -648,13 +681,18 @@ class SemantickiAnalizator:
       self.assert_leaf("TOCKAZAREZ")
     elif self.check_expressions(["KR_RETURN", "<izraz>", "TOCKAZAREZ"]):
       self.assert_leaf("KR_RETURN")
+
       expr = self.izraz()
-      outputCode.addCommandToFunction(currFunction, 'MOVE R1, R6')
-      if not in_function:
-        return self.parse_error(curr_line)
-      if not [expr] == function_to:
-        return self.parse_error(curr_line)
-      self.assert_leaf("TOCKAZAREZ")
+      if currLabel:
+         outputCode.addCommandToFunction(currFunction, 'LOAD R6, ({})'.format(currLabel))
+
+      # outputCode.addCommandToFunction(currFunction, 'LOAD R1, ')
+      else:
+        if not in_function:
+          return self.parse_error(curr_line)
+        if not [expr] == function_to:
+          return self.parse_error(curr_line)
+        self.assert_leaf("TOCKAZAREZ")
 
   """PRIJEVODNA JEDINICA"""
   def prijevodna_jedinica(self):
@@ -856,11 +894,14 @@ class SemantickiAnalizator:
       if expr.is_const:
         return self.parse_error(curr_line)
     elif self.check_expressions(["<izravni_deklarator>", "OP_PRIDRUZI", "<inicijalizator>"]):
+      global currLabel
       tmp = self.izravni_deklarator(inherited_type)
       if self.terminate: return tmp
       expr, num = tmp
       self.assert_leaf("OP_PRIDRUZI")
       tmp = self.inicijalizator()
+      outputCode.addCommandToFunction(currFunction, 'LOAD {}, ({})'.format('R' + str(currRegister), currLabel))
+      currLabel = None
       if self.terminate: return tmp
       expr2, num2 = tmp
       if not expr.is_array and not expr2.is_function:
@@ -892,6 +933,14 @@ class SemantickiAnalizator:
 
     if self.check_expressions(["IDN"]):
       idn = self.assert_leaf("IDN")
+      global currRegister
+      #treba nekak pazit da je globalno valjda na visoj razini
+      currRegister = outputCode.returnRegister() # zasad pretpostavljam da vraca dobro
+      outputCode.takeRegister(idn, currRegister)
+
+
+
+    #  outputCode.addCommandToFunction(currFunction, 'MOVE R1, R6') ovakvo pridruzivanje nema smisla pogledat kasnije
       if inherited_type == Expr("VOID"):
         return self.parse_error(curr_line)
       if self.table.contains(idn):
