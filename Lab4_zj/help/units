@@ -1,0 +1,210 @@
+CompilationUnit
+    => ExternalDeclaration
+    => CompilationUnit ExternalDeclaration
+
+ExternalDeclaration
+    => FunctionDefinition
+    => Declaration
+
+FunctionDefinition
+    => Type IDN ( VOID ) ComplexInstruction
+    => Type IDN ( ParameterList ) ComplexInstruction
+
+ParameterList
+    => ParameterDeclaration
+    => ParameterList , ParameterDeclaration
+
+ParameterDeclaration
+    => TypeName IDN
+    => TypeName IDN []
+
+ComplexInstruction
+    => { InstructionList }
+    => { DeclarationList InstructionList }
+
+InstructionList
+    => Instruction
+    => InstructionList Instruction
+
+Instruction
+    => ComplexInstruction
+    => ExpressionInstruction
+    => BranchInstruction
+    => LoopInstruction
+    => JumpInstruction
+
+ExpressionInstruction
+    => ;
+    => Expression ;
+
+BranchInstruction
+    => IF ( Expression ) Instruction
+    => IF ( Expression ) Instruction ELSE Instruction
+
+LoopInstruction
+    => WHILE ( Expression ) Instruction
+    => FOR ( ExpressionInstruction ExpressionInstruction ) Instruction
+    => FOR ( ExpressionInstruction ExpressionInstruction Expression ) Instruction
+
+JumpInstruction
+    => CONTINUE ;
+    => BREAK ;
+    => RETURN ;
+    => RETURN Expression ;
+
+DeclarationList
+    => Declaration
+    => DeclarationList Declaration
+
+Declaration
+    => TypeName InitDeclaratorList ;
+
+InitDeclaratorList
+    => InitDeclarator
+    => InitDeclaratorList , InitDeclarator
+
+InitDeclarator
+    => DirectDeclarator
+    => DirectDeclarator ASSIGN Initializer
+
+DirectDeclarator
+    => IDN
+    => IDN [ BROJ ]
+    => IDN ( VOID )
+    => IDN ( ParameterList )
+
+Initializer
+    => AssignmentExpression
+    => { AssignmentExpressionList }
+
+AssignmentExpressionList
+    => AssignmentExpression
+    => AssignmentExpressionList , AssignmentExpression
+
+Expression
+    => AssignmentExpression
+    => Expression , AssignmentExpression
+
+AssignmentExpression
+    => LogicalOrExpression
+    => PostfixExpression = AssignmentExpression
+
+PostfixExpression
+    => PrimaryExpression
+    => PostfixExpression [ Expression ]
+    => PostfixExpression ()
+    => PostfixExpression ( ArgumentList )
+    => PostfixExpression ++
+    => PostfixExpression --
+
+PrimaryExpression
+    => IDN
+    => BROJ
+    => ZNAK
+    => NIZ_ZNAKOVA
+    => ( Expression )
+
+ArgumentList
+    => AssignmentExpression
+    => ArgumentList AssignmentExpression
+
+LogicalOrExpression
+    => LogicalAndExpression
+    => LogicalOrExpression || LogicalAndExpression
+
+LogicalAndExpression
+    => BinaryOrExpression
+    => LogicalAndExpression & BinaryOrExpression
+
+BinaryOrExpression
+    => BinaryXorExpression
+    => BinaryOrExpression | BinaryXorExpression
+
+BinaryXorExpression
+    => BinaryAndExpression
+    => BinaryXorExpression ^ BinaryAndExpression
+
+BinaryAndExpression
+    => EqualityExpression
+    => BinaryAndExpression & EqualityExpression
+
+EqualityExpression
+    => RelationalExpression
+    => EqualityExpression == RelationalExpression
+    => EqualityExpression != RelationalExpression
+
+RelationalExpression
+    => AdditiveExpression
+    => RelationalExpression < AdditiveExpression
+    => RelationalExpression > AdditiveExpression
+    => RelationalExpression <= AdditiveExpression
+    => RelationalExpression >= AdditiveExpression
+
+AdditiveExpression
+    => MultiplicativeExpression
+    => AdditiveExpression + MultiplicativeExpression
+    => AdditiveExpression - MultiplicativeExpression
+
+MultiplicativeExpression
+    => CastExpression
+    => MultiplicativeExpression * CastExpression
+    => MultiplicativeExpression / CastExpression
+    => MultiplicativeExpression % CastExpression
+
+CastExpression
+    => UnaryExpression
+    => ( TypeName ) CastExpression
+
+UnaryExpression
+    => PostfixExpression
+    => ++ UnaryExpression
+    => -- UnaryExpression
+    => UnaryOperator CastExpression
+
+UnaryOperator
+    => +
+    => -
+    => ~
+    => !
+
+TypeName
+    => TypeSpecificator
+    => CONST TypeSpecificator
+
+TypeSpecificator
+    => VOID
+    => INT
+    => CHAR
+
+
+Operator names
+--------------------------
++   PLUS
+-   MINUS
+*   OP_PUTA
+/   OP_DIJELI
+%   OP_MOD
+~   OP_TILDA
+!   OP_NEG
+=   OP_PRIDRUZI
+&&  OP_I
+||  OP_ILI
+&   OP_BIN_I
+|   OP_BIN_ILI
+^   OP_BIN_XILI
+==  OP_EQ
+!=  OP_NEQ
+<   OP_LT
+>   OP_GT
+<=  OP_LTE
+>=  OP_GTE
+++  OP_INC
+--  OP_DEC
+(   L_ZAGRADA
+)   D_ZAGRADA
+{   L_VIT_ZAGRADA
+}   D_VIT_ZAGRADA
+[   L_UGL_ZAGRADA
+]   D_UGL_ZAGRADA
+,   ZAREZ
+;   TOCKAZAREZ
