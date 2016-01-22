@@ -39,12 +39,15 @@ class GlobalVariable(Variable):
 
 
 class Function():
-    def __init__(self, name, outer_variable):
+    def __init__(self, name, outer_variable, params=[]):
         self.name = name
         self.constants = set()
         self.variable = ChainMap(dict(), outer_variable)
         self.instuctions = []
         self.__saveContext()
+
+        for var in params:
+            self.variable[var] = self.__defLocalVariable(var)
 
     def __saveContext(self):
         for i in range(1, 6):
@@ -58,10 +61,11 @@ class Function():
     def setReturnConstant(self, value):
         self.constants.add(value)
         self.instuctions.append(Instruction("LOAD R6, (C_%d)" % value))
+        self.__return()
 
     def setReturnVariable(self, name):
         self.instuctions.extend(self.variable[name].save("R6"))
-        self.instuctions.append(Instruction("RET"))
+        self.__return()
 
     def assignBinaryOperation(self, op, a, b, ret=None):
         self.instuctions.extend(self.variable[a].load("R0"))
