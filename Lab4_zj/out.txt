@@ -1,0 +1,33 @@
+[0 :: <class 'units.CompilationUnit'> => [
+,  1 :: <class 'units.ExternalDeclaration'> => [
+,   2 :: <class 'units.FunctionDefinition'> => [
+   3 :: <class 'units.TypeName'> => [
+    4 :: <class 'units.TypeSpecifier'> => [
+[1] KR_INT ( int )
+[1] IDN ( main )
+[1] L_ZAGRADA ( ( )
+[1] KR_VOID ( void )
+[1] D_ZAGRADA ( ) ),    3 :: <class 'units.ComplexInstruction'> => [
+[1] L_VIT_ZAGRADA ( { )
+    4 :: <class 'units.InstructionList'> => [
+     5 :: <class 'units.Instruction'> => [
+      6 :: <class 'units.JumpInstruction'> => [
+[2] KR_RETURN ( return )
+       7 :: <class 'units.Expression'> => [
+        8 :: <class 'units.AssignmentExpression'> => [
+         9 :: <class 'units.LogicalOrExpression'> => [
+          10 :: <class 'units.LogicalAndExpression'> => [
+           11 :: <class 'units.BinaryOrExpression'> => [
+            12 :: <class 'units.BinaryXorExpression'> => [
+             13 :: <class 'units.BinaryAndExpression'> => [
+              14 :: <class 'units.EqualityExpression'> => [
+               15 :: <class 'units.RelationalExpression'> => [
+                16 :: <class 'units.AdditiveExpression'> => [
+                 17 :: <class 'units.MultiplicativeExpression'> => [
+                  18 :: <class 'units.CastExpression'> => [
+                   19 :: <class 'units.UnaryExpression'> => [
+                    20 :: <class 'units.PostfixExpression'> => [
+                     21 :: <class 'units.PrimaryExpression'> => [
+[2] IDN ( x )
+[2] TOCKAZAREZ ( ; )
+[3] D_VIT_ZAGRADA ( } )]
