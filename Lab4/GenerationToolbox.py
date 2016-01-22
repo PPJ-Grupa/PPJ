@@ -54,11 +54,24 @@ class Function():
         self.instuctions.extend(self.variable[name].save("R6"))
         self.instuctions.append(Instruction("RET"))
 
+    def assignBinaryOperation(self, op, a, b, ret=None):
+        self.instuctions.extend(self.variable[a].load("R0"))
+        self.instuctions.extend(self.variable[b].load("R1"))
+        self.instuctions.append(Instruction(op + " R6, R0, R1"))
+        if ret is not None:
+            self.instuctions.extend(self.variable[ret].save("R6"))
+
+    def assignAdd(self, a, b, ret=None):
+        self.assignBinaryOperation("ADD", a, b, ret)
+
     def __frisc__(self):
         code = self.instuctions
 
         for c in self.constants:
             code.append(Instruction("DW %%D %d" % c, label="C_" + str(c)))
+
+        if len(code) == 0 or code[-1].cmd != "RET":  # Preventing duplicate RET
+            code.append(Instruction("RET"))
 
         code[0].label = self.name
         return code
@@ -114,8 +127,18 @@ def example03():
     P.addFunction(f)
     print(P.genOutput())
 
+
 def example05():
-    pass
+    P = Program()
+    P.defineGlobal("x", 15)
+    P.defineGlobal("y", 16)
+
+    f = Function("F_MAIN", P.globals)
+    f.assignAdd("x", "y")
+    P.addFunction(f)
+    print(P.genOutput())
+
+# example 06 is working when 04 is working
 
 if __name__ == "__main__":
     example01()
@@ -123,3 +146,5 @@ if __name__ == "__main__":
     example02()
     print("== ex 3 ==")
     example03()
+    print("== ex 5 ==")
+    example05()
