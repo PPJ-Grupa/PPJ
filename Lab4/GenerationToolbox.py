@@ -44,11 +44,20 @@ class Function():
         self.constants = set()
         self.variable = ChainMap(dict(), outer_variable)
         self.instuctions = []
+        self.__saveContext()
+
+    def __saveContext(self):
+        for i in range(1, 6):
+            self.instuctions.append(Instruction("PUSH R%d" % i))
+
+    def __return(self):
+        for i in range(5, 0, -1):
+            self.instuctions.append(Instruction("POP R%d" % i))
+        self.instuctions.append(Instruction("RET"))
 
     def setReturnConstant(self, value):
         self.constants.add(value)
         self.instuctions.append(Instruction("LOAD R6, (C_%d)" % value))
-        self.instuctions.append(Instruction("RET"))
 
     def setReturnVariable(self, name):
         self.instuctions.extend(self.variable[name].save("R6"))
@@ -57,7 +66,7 @@ class Function():
     def assignBinaryOperation(self, op, a, b, ret=None):
         self.instuctions.extend(self.variable[a].load("R0"))
         self.instuctions.extend(self.variable[b].load("R1"))
-        self.instuctions.append(Instruction(op + " R6, R0, R1"))
+        self.instuctions.append(Instruction(op + " R0, R1, R6"))
         if ret is not None:
             self.instuctions.extend(self.variable[ret].save("R6"))
 
@@ -67,11 +76,12 @@ class Function():
     def __frisc__(self):
         code = self.instuctions
 
+        if len(code) == 0 or code[-1].cmd != "RET":  # Preventing duplicate RET
+            self.__return()
+            code = self.instuctions
+
         for c in self.constants:
             code.append(Instruction("DW %%D %d" % c, label="C_" + str(c)))
-
-        if len(code) == 0 or code[-1].cmd != "RET":  # Preventing duplicate RET
-            code.append(Instruction("RET"))
 
         code[0].label = self.name
         return code
