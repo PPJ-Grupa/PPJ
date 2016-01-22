@@ -16,7 +16,7 @@ from FinalCodeGenerator import *
 #lines = list(reversed(lines))
 #[print(line) for line in lines]
 print (os.getcwd())
-path = os.getcwd() + "/4labos-2012-2012/05_plus/test.in"
+path = os.getcwd() + "/4labos-2012-2012/10_bitxor/test.in"
 print(path)
 
 lines = open(path).readlines()
