@@ -51,7 +51,7 @@ class Function():
             return [Instruction("LOAD %s, (R7 + 0%X)" % (reg, self.offset + self.context.offset))]
 
         def save(self, reg):
-            return [Instruction("LOAD %s, (R7 + 0%X)" % (reg, self.offset + self.context.offset))]
+            return [Instruction("STORE %s, (R7 + 0%X)" % (reg, self.offset + self.context.offset))]
 
     def __init__(self, name, outer_variable, params=[]):
         self.name = name
@@ -77,12 +77,17 @@ class Function():
     def __return(self):
         for i in range(5, 0, -1):
             self.instuctions.append(Instruction("POP R%d" % i))
+        self.instuctions.append(Instruction("ADD R7, 0%X, R7" % self.offset))
         self.instuctions.append(Instruction("RET"))
+
+    def __constantLabel(self, value):
+        return ("CN_" if value < 0 else "C_") + str(abs(value))
 
     def __loadInto(self, value, reg):
         if type(value) == int:  # constant
             self.constants.add(value)
-            self.instuctions.append(Instruction("LOAD %s, (C_%d)" % (reg, value)))
+            self.instuctions.append(
+                Instruction("LOAD %s, (%s)" % (reg, self.__constantLabel(value))))
         elif type(value) == str:  # var name
             self.instuctions.extend(self.variable[value].load(reg))
         else:
@@ -108,12 +113,12 @@ class Function():
 
     def assignFunc(self, f, args, ret=None):
         for arg in reversed(args):
-            self.__loadInto(arg, "R0")
-            self.instuctions.append(Instruction("PUSH R0"))
+            self.__loadInto(arg, "R5")
+            self.instuctions.append(Instruction("PUSH R5"))
         self.instuctions.append(Instruction("CALL " + f.label))
+        self.instuctions.append(Instruction("ADD R7, 0%X, R7" % (len(args) * 4)))
         if ret is not None:
             self.instuctions.extend(self.variable[ret].save("R6"))
-        self.instuctions.append(Instruction("ADD R7, 0%X, R7" % (len(args) * 4)))
 
     def __frisc__(self):
         code = self.instuctions
@@ -123,7 +128,7 @@ class Function():
             code = self.instuctions
 
         for c in self.constants:
-            code.append(Instruction("DW %%D %d" % c, label="C_" + str(c)))
+            code.append(Instruction("DW %%D %d" % c, label=self.__constantLabel(c)))
 
         code[0].label = self.label
         return code

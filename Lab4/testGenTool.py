@@ -40,6 +40,13 @@ class TestStringMethods(unittest.TestCase):
         P.addFunction(f)
         self.helper(P, 1234567890)
 
+    def test_ex4(self):
+        P = Program("ex4")
+        f = Function("MAIN", P.globals)
+        f.setReturnConstant(-84)
+        P.addFunction(f)
+        self.helper(P, -84)
+
     def test_example05(self):
         P = Program("ex5")
         P.defineGlobal("x", 15)
@@ -85,5 +92,22 @@ class TestStringMethods(unittest.TestCase):
         P.addFunction(f)
         P.addFunction(main)
         self.helper(P, 12)
+
+    def test_ex13(self):
+        P = Program("ex13")
+        f = Function("f", P.globals, ["x"])
+        f.assignAdd("x", 5)
+
+        main = Function("main", P.globals)
+        main.defVariable("tmp0")
+        main.defVariable("tmp1")
+        main.assignFunc(f, [7], "tmp0")
+        main.assignFunc(f, [-4], "tmp1")
+        main.assignAdd("tmp0", "tmp1")
+
+        P.addFunction(f)
+        P.addFunction(main)
+        self.helper(P, 13)
+
 if __name__ == '__main__':
     unittest.main()
