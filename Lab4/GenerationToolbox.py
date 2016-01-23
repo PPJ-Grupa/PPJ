@@ -7,7 +7,7 @@ class Instruction():
         self.label = label
 
     def __str__(self):
-        return "%15s %s" % (self.label, self.cmd)
+        return "%s %s" % (self.label.ljust(15), self.cmd)
 
 
 class Constant():
@@ -39,15 +39,35 @@ class GlobalVariable(Variable):
 
 
 class Function():
+
+    class LocalVariable():
+        def __init__(self, name, context, offset=0):
+            assert hasattr(context, 'offset')
+            self.context = context
+            self.offset = offset
+            self.name = name
+
+        def load(self, reg):
+            return [Instruction("LOAD %s, (R7 + %d)" % (reg, self.offset + self.context.offset))]
+
+        def save(self, reg):
+            return [Instruction("LOAD %s, (R7 + %d)" % (reg, self.offset + self.context.offset))]
+
     def __init__(self, name, outer_variable, params=[]):
         self.name = name
         self.constants = set()
         self.variable = ChainMap(dict(), outer_variable)
         self.instuctions = []
         self.__saveContext()
+        self.offset = 0
 
         for var in params:
-            self.variable[var] = self.__defLocalVariable(var)
+            raise NotImplemented
+
+    def defVariable(self, name):
+        self.offset += 4
+        self.instuctions.append(Instruction("SUB R7, 4, R7"))
+        self.variable[name] = self.LocalVariable(name, self, -self.offset)
 
     def __saveContext(self):
         for i in range(1, 6):
@@ -64,7 +84,7 @@ class Function():
         self.__return()
 
     def setReturnVariable(self, name):
-        self.instuctions.extend(self.variable[name].save("R6"))
+        self.instuctions.extend(self.variable[name].load("R6"))
         self.__return()
 
     def assignBinaryOperation(self, op, a, b, ret=None):
@@ -76,6 +96,15 @@ class Function():
 
     def assignAdd(self, a, b, ret=None):
         self.assignBinaryOperation("ADD", a, b, ret)
+
+    def assignFunc(self, f, args, ret=None):
+        for arg in args:
+            self.instuctions.extend(self.variable[arg].load("R0"))
+            self.instuctions.append(Instruction("STORE R0"))
+        self.instuctions.append(Instruction("CALL F_" + f.name))
+        if ret is not None:
+            self.instuctions.extend(self.variable[ret].save("R6"))
+        self.instuctions.append(Instruction("ADD R7, %d, R7" % (len(args) * 4)))
 
     def __frisc__(self):
         code = self.instuctions
@@ -92,9 +121,10 @@ class Function():
 
 
 class Program:
-    def __init__(self):
+    def __init__(self, name=""):
         self.functions = set()
         self.globals = dict()
+        self.name = name
 
     def addFunction(self, f):
         self.functions.add(f)
@@ -102,7 +132,7 @@ class Program:
     def defineGlobal(self, name, init=0):
         self.globals[name] = GlobalVariable(name, init)
 
-    def genOutput(self):
+    def __frisc__(self):
         output = []
         output.append(Instruction("MOVE 40000, R7"))
         output.append(Instruction("CALL F_MAIN"))
@@ -113,52 +143,7 @@ class Program:
 
         for f in self.functions:
             output.extend(f.__frisc__())
-        return "\n".join(str(x) for x in output)
+        return output
 
-
-def example01():
-    P = Program()
-    f = Function("F_MAIN", P.globals)
-    f.setReturnConstant(31)
-    P.addFunction(f)
-    print(P.genOutput())
-
-
-def example02():
-    P = Program()
-    P.defineGlobal("x", 42)
-
-    f = Function("F_MAIN", P.globals)
-    f.setReturnVariable("x")
-    P.addFunction(f)
-    print(P.genOutput())
-
-
-def example03():
-    P = Program()
-    f = Function("F_MAIN", P.globals)
-    f.setReturnConstant(1234567890)
-    P.addFunction(f)
-    print(P.genOutput())
-
-
-def example05():
-    P = Program()
-    P.defineGlobal("x", 15)
-    P.defineGlobal("y", 16)
-
-    f = Function("F_MAIN", P.globals)
-    f.assignAdd("x", "y")
-    P.addFunction(f)
-    print(P.genOutput())
-
-# example 06 is working when 04 is working
-
-if __name__ == "__main__":
-    example01()
-    print("== ex 2 ==")
-    example02()
-    print("== ex 3 ==")
-    example03()
-    print("== ex 5 ==")
-    example05()
+    def __str__(self):
+        return "\n".join(str(x) for x in self.__frisc__())
