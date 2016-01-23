@@ -73,5 +73,17 @@ class TestStringMethods(unittest.TestCase):
         P.addFunction(f)
         P.addFunction(main)
         self.helper(P, 12)
+
+    def test_2paramf(self):
+        P = Program("2paramf")
+        f = Function("f", P.globals, ["x", "y", "z"])
+        f.assignAdd("x", "y")
+
+        main = Function("main", P.globals)
+        main.assignFunc(f, [7, 5, 100])
+
+        P.addFunction(f)
+        P.addFunction(main)
+        self.helper(P, 12)
 if __name__ == '__main__':
     unittest.main()

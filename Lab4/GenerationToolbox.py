@@ -48,10 +48,10 @@ class Function():
             self.name = name
 
         def load(self, reg):
-            return [Instruction("LOAD %s, (R7 + %X)" % (reg, self.offset + self.context.offset))]
+            return [Instruction("LOAD %s, (R7 + 0%X)" % (reg, self.offset + self.context.offset))]
 
         def save(self, reg):
-            return [Instruction("LOAD %s, (R7 + %X)" % (reg, self.offset + self.context.offset))]
+            return [Instruction("LOAD %s, (R7 + 0%X)" % (reg, self.offset + self.context.offset))]
 
     def __init__(self, name, outer_variable, params=[]):
         self.name = name
@@ -107,13 +107,13 @@ class Function():
         self.assignBinaryOperation("ADD", a, b, ret)
 
     def assignFunc(self, f, args, ret=None):
-        for arg in args:
+        for arg in reversed(args):
             self.__loadInto(arg, "R0")
             self.instuctions.append(Instruction("PUSH R0"))
         self.instuctions.append(Instruction("CALL " + f.label))
         if ret is not None:
             self.instuctions.extend(self.variable[ret].save("R6"))
-        self.instuctions.append(Instruction("ADD R7, %X, R7" % (len(args) * 4)))
+        self.instuctions.append(Instruction("ADD R7, 0%X, R7" % (len(args) * 4)))
 
     def __frisc__(self):
         code = self.instuctions
