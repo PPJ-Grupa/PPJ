@@ -5,10 +5,13 @@ from helpers import is_valid_char_array, calculate_padding
 from OutputCode import *
 # dodao sam tamo kod pridruzivanja, MOVE R1, R6 sad kolko je to pametno, vjerojatno nije
 outputCode = OutputCode()
-currFunction = 'F_MAIN' #u koju funkciju trenutno zapisujemo naredbe
+currFunction = 'F_main' #u koju funkciju trenutno zapisujemo naredbe
 currLabel = None
 currSign = 1
 currRegister = None
+ide_fja = False
+insert_before = False
+r5 = False
 
 counter = 1
 def pprint(stri):
@@ -106,19 +109,30 @@ class SemantickiAnalizator:
     pprint(self.lines.get_line())
 
 
+
+
     if self.check_expressions(["IDN"]):
       idn = self.assert_leaf("IDN")
+      global ide_fja
+      if ide_fja:
+          #zasad zanemarujemo varijable..
+          outputCode.addCommandToFunction(currFunction, 'CALL F_{}'.format(str(idn)))
 
       if self.table.contains(idn):
 
         idnValue = self.table.get_var(idn)
         currRegister = outputCode.registers[idn]
         nameReg = 'R' + str(currRegister)
-        outputCode.addCommandToFunction(currFunction, 'MOVE {}, R6'.format(nameReg))
+        if not r5:
+          outputCode.addCommandToFunction(currFunction, 'MOVE {}, R6'.format(nameReg))
         # zapravo, mozemo ovo ostavit al treba nam i stog, za zbrajanje itd.
         outputCode.addCommandToFunction(currFunction, 'PUSH R6')
+        # treba if al neka
+        if r5:
+          outputCode.addCommandToFunction(currFunction, 'PUSH R5')
         return idnValue
       elif self.table.is_JUST_declared(idn):
+        #print('Prepozno je da sad fja ide')
         return self.table.get_function(idn)
       else:
         return self.parse_error(curr_line)
@@ -153,6 +167,7 @@ class SemantickiAnalizator:
     curr_line = self.lines._iter
     pprint("# postfiks_izraz")
     pprint(self.lines.get_line())
+    global ide_fja
 
     if self.check_expressions(["<postfiks_izraz>", "L_UGL_ZAGRADA", "<izraz>", "D_UGL_ZAGRADA"]):
       expr = self.postfiks_izraz()
@@ -170,6 +185,8 @@ class SemantickiAnalizator:
       else:
         return _expr.set_to_lexpr()
     elif self.check_expressions(["<postfiks_izraz>", "L_ZAGRADA", "D_ZAGRADA"]):
+      global ide_fja
+      ide_fja = True
       expr = self.postfiks_izraz()
       self.assert_leaf("L_ZAGRADA")
       self.assert_leaf("D_ZAGRADA")
@@ -180,11 +197,21 @@ class SemantickiAnalizator:
         raise Exception("This should not happen")
       else:
         return ret[0]
+
     elif self.check_expressions(["<postfiks_izraz>", "L_ZAGRADA", "<lista_argumenata>", "D_ZAGRADA"]):
+
+
+
+      ide_fja = True
+
+      global insert_before
+      insert_before = True
+
       expr = self.postfiks_izraz()
       self.assert_leaf("L_ZAGRADA")
       expr2 = self.lista_argumenata()
       self.assert_leaf("D_ZAGRADA")
+
       if not expr.is_function or not expr.is_function_from(expr2):
         return self.parse_error(curr_line)
       ret = expr.get_return_type()
@@ -686,9 +713,22 @@ class SemantickiAnalizator:
     elif self.check_expressions(["KR_RETURN", "<izraz>", "TOCKAZAREZ"]):
       self.assert_leaf("KR_RETURN")
 
+      global currLabel
+      global insert_before
       expr = self.izraz()
       if currLabel:
-         outputCode.addCommandToFunction(currFunction, 'LOAD R6, ({})'.format(currLabel))
+          if insert_before:
+            # mozda ipak samo da stavimo da ide to negdje
+            outputCode.addCommandBeforeCall(currFunction, 'LOAD R6, ({})'.format(currLabel))
+            outputCode.addCommandBeforeCall(currFunction, 'MOVE R6, R5')
+
+          else:
+            if not r5:
+              outputCode.addCommandToFunction(currFunction, 'LOAD R6, ({})'.format(currLabel))
+              currLabel = None
+            else:
+              outputCode.addCommandToBegin(currFunction, 'LOAD R6, ({})'.format(currLabel))
+              currLabel = None
 
       # outputCode.addCommandToFunction(currFunction, 'LOAD R1, ')
       else:
@@ -737,7 +777,7 @@ class SemantickiAnalizator:
     curr_line = self.lines._iter
     pprint("# definicija_funkcije")
     pprint(self.lines.get_line())
-
+    global currFunction
     if self.check_expressions(["<ime_tipa>", "IDN", "L_ZAGRADA", "KR_VOID", "D_ZAGRADA"
                              , "<slozena_naredba>"]):
       ## 1
@@ -761,6 +801,11 @@ class SemantickiAnalizator:
       self.assert_leaf("L_ZAGRADA")
       self.assert_leaf("KR_VOID")
       self.assert_leaf("D_ZAGRADA")
+     # print(str(idn) + "1\n")
+     # print(str(self.table.get_function(idn)) + "2\n")
+
+      currFunction = 'F_' + (idn)
+
       ## 6
       self.slozena_naredba(in_function = True, function_to = [expr])
     elif self.check_expressions(["<ime_tipa>", "IDN", "L_ZAGRADA", "<lista_parametara>", "D_ZAGRADA"
@@ -772,6 +817,12 @@ class SemantickiAnalizator:
         return self.parse_error(curr_line)
       idn = self.assert_leaf("IDN")
       ## X
+
+      currFunction = 'F_' + (idn)
+
+      global r5
+      r5 = True
+
       self.assert_leaf("L_ZAGRADA")
       ## 4
       types, names = self.lista_parametara()
@@ -840,6 +891,10 @@ class SemantickiAnalizator:
       if expr == Expr("VOID"):
         return self.parse_error(curr_line)
       idn = self.assert_leaf("IDN")
+      #linija
+
+      currRegister = outputCode.returnRegister() # zasad pretpostavljam da vraca dobro
+      outputCode.takeRegister(idn, currRegister)
       return expr, idn
     else:
       return self.parse_error(curr_line)

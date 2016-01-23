@@ -13,11 +13,14 @@ class OutputCode:
         self.functions = {} # functions[name] = [lista naredbi], lista naredbi za svaku fju
 
         self.addFirstCommand('MOVE 40000, R7')
-        self.addFirstCommand('CALL F_MAIN')
+        self.addFirstCommand('CALL F_main')
         self.addFirstCommand('HALT')
 
         # postoji fja imena 'F_MAIN'
-        self.listOfFunctions.append('F_MAIN')
+        name = 'F_main'
+        self.listOfFunctions.append(name)
+        self.functions[name] = []
+        self.functions[name].append(name)
 
         self.takenRegisters = [False for i in range(0, 7)]
         self.registers = { } # kljuc je identifikator, povratna vrijednost je registar u kojem je njegova vrijednost
@@ -46,11 +49,20 @@ class OutputCode:
         return currLabel
 
     def addCommandToFunction (self, name, command):
-        if not name in self.functions:
+        if not name in self.listOfFunctions:
+            self.listOfFunctions.append(name)
             self.functions[name] = []
             self.functions[name].append(name)
 
         self.functions[name].append(' ' + command)
+
+    def addCommandToBegin(self, name, command):
+        self.functions[name].insert(1, ' ' + command)
+
+    def addCommandBeforeCall (self, name, command):
+
+        self.functions[name].insert(len(self.functions[name]) - 1, ' ' + command)
+
 
     def functionToString(self, name):
         outFun = ""
