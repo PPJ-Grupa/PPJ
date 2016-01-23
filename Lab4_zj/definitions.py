@@ -7,7 +7,7 @@ class FRISC:
 
     Provides utilities such as label generation, memory management etc."""
     _INIT_ORIGIN = 0x00
-    _FUNCTION_SPACE_ORIGIN = 0x50
+    _FUNCTION_SPACE_ORIGIN = 0x200
     _FUNCTION_SPACE_INCREMENT = 0x500
     _DATA_SPACE_ORIGIN = 0x1000
     _INITIAL_STACK_POINTER = 0x40000
@@ -24,6 +24,7 @@ class FRISC:
     MAIN_LABEL = 0
 
     _header_code = []
+    _main_call_code = []
     _code = []
     _trailer_code = []
 
@@ -68,23 +69,26 @@ class FRISC:
         FRISC.MAIN_LABEL = label
 
     @staticmethod
-    def generate_skeleton():
-        FRISC._header_code += [
-            '\tORG {:X}'.format( FRISC._INIT_ORIGIN ),
-            '\tMOVE {:X}, SP'.format( FRISC._INITIAL_STACK_POINTER ),
-            '\tCALL {}'.format( FRISC.MAIN_LABEL ),
-            '\tHALT',
-            '' ]
+    def generate_header():
+        FRISC._header_code += [ '\t`ORG {:X}'.format( FRISC._INIT_ORIGIN ), '\tMOVE {:X}, SP'.format( FRISC._INITIAL_STACK_POINTER ) ]
+
+    @staticmethod
+    def generate_main_call():
+        FRISC._main_call_code += [ '\tCALL {}'.format( FRISC.MAIN_LABEL ), '\tHALT', '' ]
 
     @staticmethod
     def generate_final_code():
-        FRISC._code = FRISC._header_code + FRISC._code + FRISC._trailer_code
+        FRISC._code = FRISC._header_code + FRISC._main_call_code + FRISC._code + FRISC._trailer_code
 
     @staticmethod
     def output_final_code():
         print( ';' + '='*10 + ' OUTPUT MADE BY friscGEN 1.0.1 ' + '='*60 )
         for line in FRISC._code:
             print( line )
+
+    @staticmethod
+    def place_code_in_global_scope( code ):
+        FRISC._header_code += code
 
     @staticmethod
     def place_function_in_memory( code ):
@@ -188,7 +192,14 @@ class Constant( Value ):
 
         self.label = FRISC.get_next_data_label()
         self.location = FRISC.get_next_data_location( 4 )
-        FRISC.place_data_in_memory( [ '\tORG {:X}'.format( self.location ), self.label, '\tDW {:X}'.format( self.value ) ] )
+
+        bvals = []
+        tvalue = self.value
+        for i in range( 4 ):
+            bvals.append( tvalue & 255 )
+            tvalue >>= 8
+        FRISC.place_data_in_memory( [ '\t`ORG {:X}'.format( self.location ), self.label,
+            '\t`DW {:03X},{:03X},{:03X},{:03X}'.format( bvals[ 0 ], bvals[ 1 ], bvals[ 2 ], bvals[ 3 ] ) ] )
 
     def place_on_stack( self ):
         if self.type.is_array(): raise ValueError( 'Cannot push array on stack' )
@@ -259,9 +270,10 @@ class Scope:
 # Labelling ####################################################################
 
 class Labels:
-    def __init__( self, ret_label, loop_label = None ):
+    def __init__( self, ret_label, loop_label = None, end_loop_label = None ):
         self.ret = ret_label
         self.loop = loop_label
+        self.end_loop = end_loop_label
 
 ################################################################################
 # Generator utilities                                                          #

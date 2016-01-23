@@ -28,13 +28,13 @@ while len( stack ) > 1:
     top = stack.pop()
     stack[ -1 ].append( top )
 
-print( stack[ -1 ] )
+# print( stack[ -1 ] )
 
 global_scope = Scope()
-
+FRISC.generate_header()
 
 stack[ -1 ].descend( global_scope )
 
-FRISC.generate_skeleton()
+FRISC.generate_main_call()
 FRISC.generate_final_code()
 FRISC.output_final_code()

@@ -37,7 +37,11 @@ class AbstractInstruction( Unit ): pass
 ################################################################################
 
 class CompilationUnit( Unit ):      pass  # ExternalDeclaration | CompilationUnit ExternalDeclaration
-class ExternalDeclaration( Unit ):  pass  # FunctionDefinition | Declaration
+class ExternalDeclaration( Unit ):        # FunctionDefinition | Declaration
+    def descend( self, scope ):
+        code = self[ 0 ].descend( scope )
+        if code is not None:
+            FRISC.place_code_in_global_scope( code )
 
 class FunctionDefinition( Unit ):
     def __init__( self, depth ):
@@ -62,7 +66,7 @@ class FunctionDefinition( Unit ):
         child_code = self[ 5 ].descend( local_scope, labels )
         self.function.create_location( 24 + 4*len( child_code ) )
 
-        code = [ '\tORG {:X}'.format( self.function.location ), self.function.label, '\tPUSH R5', '\tMOVE SP, R5', '\tSUB SP, {:X}, SP'.format( local_scope.local_vars ) ]
+        code = [ '\t`ORG {:X}'.format( self.function.location ), self.function.label, '\tPUSH R5', '\tMOVE SP, R5', '\tSUB SP, {:X}, SP'.format( local_scope.local_vars ) ]
         code += child_code
         code += [ labels.ret, '\tADD SP, {:X}, SP'.format( local_scope.local_vars ), '\tPOP R5', '\tRET', '' ]
 
@@ -114,12 +118,33 @@ class ExpressionInstruction( Unit ):
 class BranchInstruction( Unit ):
     def descend( self, scope, labels ):     # IF ( Expression ) Instruction | IF ( Expression ) Instruction ELSE Instruction
         if len( self ) == 5:
-            pass
+            raise NotImplementedError
         else:
-            pass
+            raise NotImplementedError
 
-class LoopInstruction( Unit ): pass
-class JumpInstruction( Unit ): pass
+class LoopInstruction( Unit ):
+    def descend( self, scope, labels ):     # WHILE ( Expression ) Instruction | FOR ( ExpressionInstruction ExpressionInstruction ) Instruction | FOR ( ExpressionInstruction ExpressionInstruction Expression ) Instruction
+        if len( self ) == 5:                # While
+            raise NotImplementedError
+        elif len( self ) == 6:              # For ( E E )
+            raise NotImplementedError
+        else:                               # For ( E E E )
+            raise NotImplementedError
+
+class JumpInstruction( Unit ):              # CONTINUE ; | BREAK ; | RETURN ; | RETURN Expression ;
+    def descend( self, scope, labels ):
+        if self[ 0 ].name == 'KR_CONTINUE':
+            return [ '\tJP {}'.format( labels.loop ) ]
+        elif self[ 0 ].name == 'KR_BREAK':
+            return [ '\tJP {}'.format( labels.end_loop ) ]
+        else:
+            if len( self ) == 2:
+                return [ '\tJP {}'.format( labels.ret ) ]
+            else:
+                code = self[ 1 ].descend( scope )
+                code += self[ 1 ].result.place_on_stack()
+                code += [ '\tPOP R6', '\tJP {}'.format( labels.ret ) ]
+                return code
 
 class DeclarationList( Unit ):
     def descend( self, scope ):     # Declaration | DeclarationList Declaration
@@ -128,7 +153,8 @@ class DeclarationList( Unit ):
 class Declaration( Unit ):
     def descend( self, scope ):     # TypeName InitDeclaratorList ;
         self[ 0 ].descend( scope )
-        return self[ 1 ].descend( scope, self[ 0 ].type )
+        code = self[ 1 ].descend( scope, self[ 0 ].type )
+        return code
 
 class InitDeclaratorList( Unit ):
     def descend( self, scope, inherited_type ):     # InitDeclarator | InitDeclaratorList , InitDeclarator
@@ -140,7 +166,8 @@ class InitDeclarator( Unit ):
         code = []
         if len( self ) == 3:
             code = self[ 2 ].descend( scope )
-
+            code += self[ 2 ].result.place_on_stack()
+            code += lvalue.store_from_stack()
         return code
 
 class DirectDeclarator( Unit ):
@@ -151,7 +178,7 @@ class DirectDeclarator( Unit ):
                 location = FRISC.get_next_data_location( inherited_type.size() )
                 var = Variable( self[ 0 ].content, inherited_type, '({})'.format( label ) )
                 scope[ var.name ] = var
-                FRISC.place_data_in_memory( [ '\tORG {:X}'.format( location ), '\tDS {:X}'.format( inherited_type.size() ), '' ] )
+                FRISC.place_data_in_memory( [ '\t`ORG {:X}'.format( location ), label, '\t`DS {:X}'.format( inherited_type.size() ), '' ] )
                 return var
             else:                                   # Local array
                 var = Variable( self[ 0 ].content, inherited_type, '(R5+{:X})'.format( 4*scope.get_local_vars() ) )
@@ -165,7 +192,7 @@ class DirectDeclarator( Unit ):
                 location = FRISC.get_next_data_location( inherited_type.to_array().size( size ) )
                 var = Variable( self[ 0 ].content, inherited_type.to_array(), '#'+label, size )
                 scope[ var.name ] = var
-                FRISC.place_data_in_memory( [ '\tORG {:X}'.format( location ), '\tDS {:X}'.format( var.type.size( var.array_size ) ), '' ] )
+                FRISC.place_data_in_memory( [ '\t`ORG {:X}'.format( location ), '\t`DS {:X}'.format( var.type.size( var.array_size ) ), '' ] )
                 return var
             else:                                   # Local array
                 size = int( self[ 2 ].content )
@@ -181,63 +208,226 @@ class DirectDeclarator( Unit ):
 class Initializer( Unit ):
     def __init__( self, depth ):
         super().__init__( depth )
-        self.value = Value
+        self.result = Value
 
     def descend( self, scope ):     # AssignmentExpression | { AssignmentExpressionList }
         if len( self ) == 1:
-            self[ 0 ].descend( scope )
-            self.value = self[ 0 ].value
+            code = self[ 0 ].descend( scope )
+            self.result = self[ 0 ].result
         else:
-            self[ 1 ].descend( scope )
-            self.value = self[ 0 ].value
+            code = self[ 1 ].descend( scope )
+            self.result = self[ 1 ].result
+        return code
 
 class ArgumentList( Unit ): pass
 
 class AssignmentExpressionList( Unit ): pass
-class Expression( AbstractExpression ): pass
-class AssignmentExpression( AbstractExpression ): pass
+
+class Expression( AbstractExpression ):
+    def descend( self, scope ):     # AssignmentExpression | Expression , AssignmentExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            code += self[ 2 ].descend( scope )
+            self.result = self[ 2 ].result
+        return code
+
+class AssignmentExpression( AbstractExpression ):
+    def descend( self, scope ):     # LogicalOrExpression | PostfixExpression = AssignmentExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            code += self[ 2 ].descend( scope )
+            raise NotImplementedError
+        return code
+
 class PostfixExpression( AbstractExpression ):
     def descend( self, scope ):     # PrimaryExpression | PostfixExpression [ Expression ] | PostfixExpression () | PostfixExpression ( ArgumentList ) | PostfixExpression ++ | PostfixExpression --
+        self[ 0 ].descend( scope )
         if len( self ) == 1:
-            self[ 0 ].descend( scope )
-            self.value = self[ 0 ].value
+            self.result = self[ 0 ].result
             return []
         elif len( self ) == 2:
-            self[ 0 ].descend( scope )
-            if self[ 1 ].name == 'OP_INC':
+            if self[ 1 ].name == 'OP_INC':  # PostfixExpression ++
                 raise NotImplementedError
-            else:
+            else:                           # PostfixExpression --
                 raise NotImplementedError
-        elif len( self ) == 3:
-            self[ 0 ].descend( scope )
-
+        elif len( self ) == 3:              # PostfixExpression ()
+            raise NotImplementedError
+        else:
+            if self[ 1 ].name == 'L_UGL_ZAGRADA':   # PostfixExpression [ Expression ]
+                self[ 2 ].descend( scope )
+                self.result = ArrayAccess( self[ 0 ].result, self[ 2 ].result )
+            else:                           # PostfixExpression ( ArgumentList )
+                raise NotImplementedError
 
 class PrimaryExpression( AbstractExpression ):
     def descend( self, scope ):     # IDN | BROJ | ZNAK | NIZ_ZNAKOVA | ( Expression )
         if len( self ) == 1:
-            if self[ 0 ].name == 'IDN':     #
+            if self[ 0 ].name == 'IDN':
                 self.result = scope[ self[ 0 ].content ]
-            elif self[ 0 ].name == 'BROJ':  #
+            elif self[ 0 ].name == 'BROJ':
                 self.result = Constant( int( self[ 0 ].content ), Int )
             elif self[ 0 ].name == 'ZNAK':
                 self.result = Constant( int( self[ 0 ].content ), Char )
             else: raise NotImplementedError
         else:
-            self.value = self[ 1 ].value
+            self.result = self[ 1 ].result
+        return []
 
-class LogicalOrExpression( AbstractExpression ): pass
-class LogicalAndExpression( AbstractExpression ): pass
-class BinaryOrExpression( AbstractExpression ): pass
-class BinaryXorExpression( AbstractExpression ): pass
-class BinaryAndExpression( AbstractExpression ): pass
-class RelationalExpression( AbstractExpression ): pass
-class EqualityExpression( AbstractExpression ): pass
-class AdditiveExpression( AbstractExpression ): pass
-class MultiplicativeExpression( AbstractExpression ): pass
-class CastExpression( AbstractExpression ): pass
-class UnaryExpression( AbstractExpression ): pass
+class LogicalOrExpression( AbstractExpression ):
+    def descend( self, scope ):     # LogicalAndExpression | LogicalOrExpression || LogicalAndExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            raise NotImplementedError
+            # code += self[ 2 ].descend( scope )
+            # code += self[ 0 ].result.place_on_stack()
+            # code += self[ 2 ].result.place_on_stack()
+            # code += [ '\tPOP R2', '\tPOP R1', '\tOR R2, R1, R0', '\tPUSH R0' ]
+            # self.result = TopOfStack()
+        return code
 
-class UnaryOperator( Unit ): pass
+class LogicalAndExpression( AbstractExpression ):
+    def descend( self, scope ):     # BinaryOrExpression | LogicalAndExpression && BinaryOrExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            raise NotImplementedError
+            # code += self[ 2 ].descend( scope )
+            # code += self[ 0 ].result.place_on_stack()
+            # code += self[ 2 ].result.place_on_stack()
+            # code += [ '\tPOP R2', '\tPOP R1', '\tOR R2, R1, R0', '\tPUSH R0' ]
+            # self.result = TopOfStack()
+        return code
+
+class BinaryOrExpression( AbstractExpression ):
+    def descend( self, scope ):     # BinaryXorExpression | BinaryOrExpression (|) BinaryXorExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            code += self[ 2 ].descend( scope )
+            code += self[ 0 ].result.place_on_stack()
+            code += self[ 2 ].result.place_on_stack()
+            code += [ '\tPOP R2', '\tPOP R1', '\tOR R2, R1, R0', '\tPUSH R0' ]
+            self.result = TopOfStack()
+        return code
+
+class BinaryXorExpression( AbstractExpression ):
+    def descend( self, scope ):     # BinaryXorExpression | BinaryOrExpression ^ BinaryXorExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            code += self[ 2 ].descend( scope )
+            code += self[ 0 ].result.place_on_stack()
+            code += self[ 2 ].result.place_on_stack()
+            code += [ '\tPOP R2', '\tPOP R1', '\tXOR R2, R1, R0', '\tPUSH R0' ]
+            self.result = TopOfStack()
+        return code
+
+class BinaryAndExpression( AbstractExpression ):
+    def descend( self, scope ):     # EqualityExpression | BinaryAndExpression ^ EqualityExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            code += self[ 2 ].descend( scope )
+            code += self[ 0 ].result.place_on_stack()
+            code += self[ 2 ].result.place_on_stack()
+            code += [ '\tPOP R2', '\tPOP R1', '\tAND R2, R1, R0', '\tPUSH R0' ]
+            self.result = TopOfStack()
+        return code
+
+class EqualityExpression( AbstractExpression ):
+    def descend( self, scope ):     # RelationalExpression | EqualityExpression == RelationalExpression | EqualityExpression != RelationalExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            raise NotImplementedError
+
+        return code
+
+class RelationalExpression( AbstractExpression ):
+    def descend( self, scope ):     # AdditiveExpression | RelationalExpression ( < | > | <= | >= ) AdditiveExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            raise NotImplementedError
+        return code
+
+class AdditiveExpression( AbstractExpression ):
+    def descend( self, scope ):     # MultiplicativeExpression | AdditiveExpression ( + | - ) MultiplicativeExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            code += self[ 2 ].descend( scope )
+            code += self[ 2 ].result.place_on_stack()
+            code += self[ 0 ].result.place_on_stack()
+            code += [ '\tPOP R1', '\tPOP R2', '\tADD R1, R2, R0', '\tPUSH R0' ]
+            self.result = TopOfStack()
+        return code
+
+class MultiplicativeExpression( AbstractExpression ):
+    def descend( self, scope ):     # CastExpression | MultiplicativeExpression ( * | / | % ) CastExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.result = self[ 0 ].result
+        else:
+            raise NotImplementedError
+        return code
+
+class CastExpression( AbstractExpression ):
+    def descend( self, scope ):     # UnaryExpression | ( TypeName ) CastExpression
+        if len( self ) == 1:
+            code = self[ 0 ].descend( scope )
+            self.result = self[ 0 ].result
+        else:
+            code = self[ 3 ].descend( scope )
+            self.result = self[ 3 ].result
+        return code
+
+class UnaryExpression( AbstractExpression ):
+    def descend( self, scope ):     # PostfixExpression | ( ++ | -- ) UnaryExpression | UnaryOperator CastExpression
+        if len( self ) == 1:
+            self[ 0 ].descend( scope )
+            self.result = self[ 0 ].result
+            return []
+        elif isinstance( self[ 0 ], UnaryOperator ):
+            self[ 0 ].descend( scope )
+            op = self[ 0 ].operator
+            code = self[ 1 ].descend( scope )
+            code += self[ 1 ].result.place_on_stack()
+            if op == '+':
+                pass
+            elif op == '-':
+                code += [ '\tPOP R0', '\tXOR R0, -1, R0', '\tADD R0, 1, R0', '\tPUSH R0' ]
+            elif op == '~':
+                code += [ '\tPOP R0', '\tXOR R0, -1, R0', '\tPUSH R0' ]
+            else:   # !
+                pass
+            self.result = TopOfStack()
+            return code
+        elif self[ 0 ].name == 'OP_INC':
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+
+class UnaryOperator( Unit ):
+    def __init__( self, depth ):
+        super().__init__( depth )
+        self.operation = None
+
+    def descend( self, scope ):
+        self.operator = { 'PLUS' : '+', 'MINUS' : '-', 'OP_TILDA' : '~', 'OP_NEG' : '!' }[ self[ 0 ].name ]
 
 class TypeName( Unit ):
     def __init__( self, depth ):
