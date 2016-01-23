@@ -126,7 +126,7 @@ class SemantickiAnalizator:
       global currLabel
       expr = self.assert_leaf("BROJ")
       num = int(expr)
-      currLabel = outputCode.generateLabel( "`DW %D {}".format( num*currSign ) ) # sazad tu pisemo dw, stas
+      currLabel = outputCode.generateLabel( "DW %D {}".format( num*currSign ) ) # sazad tu pisemo dw, stas
       if int(expr) < -2**31 or int(expr) >= 2**31:
         return self.parse_error(curr_line)
       return Expr("INT")
@@ -439,7 +439,11 @@ class SemantickiAnalizator:
     if self.check_expressions(["<bin_i_izraz>"]):
       return self.bin_i_izraz()
     elif self.check_expressions(["<bin_xili_izraz>", "OP_BIN_XILI", "<bin_i_izraz>"]):
-      return self.check_both_for_int_and_return_int(curr_line, self.bin_xili_izraz, "OP_BIN_XILI", self.bin_i_izraz)
+      self.check_both_for_int_and_return_int(curr_line, self.bin_xili_izraz, "OP_BIN_XILI", self.bin_i_izraz)
+      outputCode.addCommandToFunction(currFunction, 'POP R1')
+      outputCode.addCommandToFunction(currFunction, 'POP R0')
+      outputCode.addCommandToFunction(currFunction, 'XOR R0, R1, R6')
+      return
     else:
       return self.parse_error(curr_line)
 
