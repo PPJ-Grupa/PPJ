@@ -1,351 +1,178 @@
 from definitions import *
 
+################################################################################
+# Basic units                                                                  #
+################################################################################
 
 class Unit:
-    def __init__( self, depth, scope ):
+    def __init__( self, depth ):
         self.depth = depth
         self.children = []
-        self.scope = scope
 
-    def __str__( self ):
-        return (
-            ' '*self.depth + '{} :: {} => [\n'.format( self.depth, self.__class__ ) +
-            '\n'.join( map( str, self.children ) ) + '\n' +
-            ' '*self.depth + ']'
-        )
-
-    def __repr__( self ):
-        return str( self )
-
-    def __len__( self ):
-        return len( self.children )
-
-    def __getitem__( self, key ):
-        return self.children[ key ]
-
-    def generate( self ):
-        pass
-
-    def process( self ):
-        pass
-
-    def append( self, child ):
-        self.children.append( child )
+    def __str__( self ):            return '{}{} :: {} => [\n{}\n{}]'.format( ' '*self.depth, self.depth, self.__class__,
+                                        '\n'.join( map( str, self.children ) ), ' '*self.depth )
+    def __repr__( self ):           return str( self )
+    def __len__( self ):            return len( self.children )
+    def __getitem__( self, key ):   return self.children[ key ]
+    def append( self, child ):      self.children.append( child )
+    def descend( self, scope ):     [ child.descend( scope ) for child in self.children ]
 
 class Token( Unit ):
-    def __init__( self, token, depth ):
-        self.token = token
-        super().__init__( depth, None )
-
-    def __str__( self ):
-        return ' '*self.depth + str( self.token )
-
-################################################################################
-
-class CompilationUnit( Unit ): pass
-
-class ExternalDeclaration( Unit ): pass
-
-class FunctionDefinition( Unit ):
-    def __init__( self, depth, scope ):
-        super().__init__( depth, scope )
-        self.type = Undefined
-
-    def process( self ):
-        if len( self ) == 6:    # TypeName IDN ( VOID ) ComplexInstruction
-            self.type = FunctionType( self[ 0 ].type, Void )
-            self.scope[ self[ 1 ].token.content ] = Function( self[ 1 ].token.content, self.type, True )
-        elif len( self ) == 7:  # TypeName IDN ( ArgumentList ) ComplexInstruction
-            # TODO
-            pass
-
-
-class ParameterList( Unit ): pass
-
-class ParameterDeclaration( Unit ): pass
-
-################################################################################
-
-class AbstractInstruction( Unit ):
-    def __init__( self, depth, scope ):
-        super().__init__( depth, scope )
-        self.type = Undefined
-
-class ComplexInstruction( Unit ):
-    def __init__( self, depth, scope ):
-        scope = Scope( scope )
-        super().__init__( depth, scope )
-        # self.return_value = Void
-
-class InstructionList( Unit ): pass # ??
-
-class Instruction( AbstractInstruction ): pass
-
-class ExpressionInstruction( AbstractInstruction ):
-    def process( self ):
-        if len( self ) == 1:    # ;
-            self.type = Int
-        elif len( self ) == 2:  # Expression ;
-            self.type = self[ 0 ].type
-
-class BranchInstruction( AbstractInstruction ):
-    def process( self ):
-        if len( self ) == 5:    # IF ( Expression ) Instruction
-            pass
-        elif len( self ) == 7:  # IF ( Expression ) Instruction ELSE Instruction
-            pass
-
-class LoopInstruction( AbstractInstruction ):
-    def process( self ):
-        if len( self ) == 5:    # WHILE ( Expression ) Instruction
-            pass
-        elif len( self ) == 6:  # FOR ( ExpressionInstruction ExpressionInstruction ) Instruction
-            pass
-        elif len( self ) == 7:  # FOR ( ExpressionInstruction ExpressionInstruction Expression ) Instruction
-            pass
-
-class JumpInstruction( AbstractInstruction ):
-    def process( self ):
-        if self[ 0 ].token.name == 'KR_BREAK':
-            pass
-        elif self[ 0 ].token.name == 'KR_CONTINUE':
-            pass
-        elif self[ 0 ].token.name == 'KR_RETURN':
-            if len( self ) == 2:    # RETURN ;
-                pass
-            elif len( self ) == 3:  # RETURN Expression ;
-                pass
-
-################################################################################
-
-class DeclarationList( Unit ): pass
-
-class Declaration( Unit ): pass
-
-class InitDeclarationList( Unit ): pass
-
-class InitDeclaration( Unit ): pass
-
-class DirectDeclarator( Unit ): pass
-
-class Initializer( Unit ): pass
-
-class AssignmentExpressionList( Unit ): pass
-
-class ArgumentList( Unit ):
-    def __init__( self, depth, scope ):
-        super().__init__( depth, scope )
-        self.types = []
-
-    def process( self ):
-        if len( self ) == 1:    # ( x )
-            self.types = [ self[ 0 ].type ]
-        else:   # ( x, ArgumentList )
-            self.types = self[ 0 ].types + [ self[ 2 ].type ]
-
-
-################################################################################
+    def __init__( self, depth, token ):
+        super().__init__( depth )
+        self.name = token.name
+        self.content = token.content
+    def __str__( self ):            return '{}{} :: {} :: {} {}'.format( ' '*self.depth, self.depth, self.__class__, self.name, self.content )
 
 class AbstractExpression( Unit ):
-    def __init__( self, depth, scope ):
-        super().__init__( depth, scope )
+    def __init__( self, depth ):
+        super().__init__( depth )
+        self.result = None
         self.type = Undefined
-        self.lvalue = None
 
-class Expression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # AssignmentExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # Expression , AssignmentExpression
-            self.type = self[ 2 ].type
-            self.lvalue = True
-
-class AssignmentExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # LogicalOrExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # PostfixExpression || AssignmentExpression
-            self.type = self[ 0 ].type
-            self.lvalue = False
-
-class PostfixExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # PrimaryExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 2:  # x++ or x--
-            self.type = Int
-            self.lvalue = False
-        elif len( self ) == 3:  # func ()
-            self.type = self[ 0 ].type.return_type
-            self.lvalue = False
-        elif len( self ) == 4:
-            if self[ 1 ].token.name == 'L_UGL_ZAGRADA':     # array[]
-                self.type = self[ 0 ].type.element_type
-                self.lvalue = not self.type.const
-            elif self[ 1 ].token.name == 'L_ZAGRADA':       # func( args )
-                self.type = self[ 0 ].type.return_type
-                self.lvalue = False
-
-
-class PrimaryExpression( AbstractExpression ):
-    def process( self ):
-        if self[ 0 ].token.name == 'IDN':
-            self.type = self.scope[ self[ 0 ].token.content ].type   # KeyError possible
-            self.lvalue = self.type.lvalue
-        elif self[ 0 ].token.name == 'BROJ':
-            if not Int.validate( self[ 0 ].token.content ): raise ValueError( 'Not a valid integer.' )
-            self.type = Int
-            self.lvalue = False
-        elif self[ 0 ].token.name == 'ZNAK':
-            if not Char.validate( self[ 0 ].token.content ): raise ValueError( 'Not a valid char.' )
-            self.type = Char
-            self.lvalue = False
-        elif self[ 0 ].token.name == 'NIZ_ZNAKOVA':
-            if not ConstCharArray.validate( self[ 0 ].token.content ): raise ValueError( 'Not a valid string.' )
-            self.type = ConstCharArray
-            self.lvalue = False
-        elif len( self ) == 3:   # ( Expression )
-            self.type = self[ 1 ].type
-            self.lvalue = self[ 1 ].type
-
-class LogicalOrExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # LogicalAndExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # LogicalOrExpression || LogicalAndExpression
-            self.type = Int
-            self.lvalue = False
-
-class LogicalAndExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # BinaryOrExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # LogicalAndExpression && BinaryOrExpression
-            self.type = Int
-            self.lvalue = False
-
-class BinaryOrExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # BinaryXorExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # BinaryOrExpression | BinaryXorExpression
-            self.type = Int
-            self.lvalue = False
-
-class BinaryXorExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # BinaryAndExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # BinaryXorExpression ^ BinaryAndExpression
-            self.type = Int
-            self.lvalue = False
-
-class BinaryAndExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # EqualityExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # BinaryAndExpression & EqualityExpression
-            self.type = Int
-            self.lvalue = False
-
-class EqualityExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # RelationalExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # EqualityExpression (==|!=) RelationalExpression
-            self.type = Int
-            self.lvalue = False
-
-class RelationalExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # AdditiveExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # RelationalExpression (<|>|<=|>=) AdditiveExpression
-            self.type = Int
-            self.lvalue = False
-
-class AdditiveExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # MultiplicativeExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # AdditiveExpression (+|-) MultiplicativeExpression
-            self.type = Int
-            self.lvalue = False
-
-
-class MultiplicativeExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # CastExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 3:  # MultiplicativeExpression (*|/|%) CastExpression
-            self.type = Int
-            self.lvalue = False
-
-class CastExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # UnaryExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 4:  # ( TypeName ) CastExpression
-            self.type = self[ 1 ].type
-            self.lvalue = False
-
-class UnaryExpression( AbstractExpression ):
-    def process( self ):
-        if len( self ) == 1:    # PostfixExpression
-            self.type = self[ 0 ].type
-            self.lvalue = self[ 0 ].lvalue
-        elif len( self ) == 2:
-            if isinstance( self[ 0 ], Token ):  # (++ | --) UnaryExpression
-                self.type = Int
-                self.lvalue = False
-            elif isinstance( self[ 0 ], UnaryOperator ):    # UnaryOperator UnaryExpression
-                self.type = Int
-                self.lvalue = False
-
-
+class AbstractInstruction( Unit ):
+    pass
+    # Have a parent loop label name
 
 ################################################################################
+# Semantic units                                                               #
+################################################################################
 
-class UnaryOperator( Unit ):
-    pass
+class CompilationUnit( Unit ):      pass  # ExternalDeclaration | CompilationUnit ExternalDeclaration
+class ExternalDeclaration( Unit ):  pass  # FunctionDefinition | Declaration
+
+class FunctionDefinition( Unit ):
+    def __init__( self, depth ):
+        super().__init__( depth )
+        self.function = None
+        self.parameters = []
+
+    def descend( self, scope ): # TypeName IDN ( VOID | ParameterList ) ComplexInstruction
+        super().descend( scope )
+        self.parameters = self[ 3 ].parameters if isinstance( self[ 3 ], ParameterList ) else []
+        parameter_types = [ param.type for param in self.parameters ] if self.parameters else Void
+
+        self.function = Function( self[ 1 ].content, FunctionType( self[ 0 ].type, parameter_types ), True )
+        scope[ self[ 1 ].content ] = self.function
+        if self.function.name == 'main': FRISC.register_main_function( self.function.label )
+
+        local_scope = Scope( scope )
+        for i, param in enumerate( self.parameters ):
+            local_scope[ param.name ] = Variable( param.name, param.type, load_key = '(R5-{:X})'.format( 4*( 2+i ) ) )
+
+        child_code = self[ 5 ].descend( local_scope )
+        self.function.create_location( 16 + len( child_code ) )
+
+        code = [ '', '\tORG {:X}'.format( self.function.location ), self.function.label, '\tPUSH R5', '\tMOVE SP, R5' ]
+        code += child_code
+        code += [ '\tADD SP, {:X}, SP'.format( local_scope.local_vars ), '\tPOP R5', '\tRET' ]
+
+        FRISC.place_function_in_memory( code )
+
+class ParameterList( Unit ):
+    def __init__( self, depth ):
+        super().__init__( depth )
+        self.parameters = []
+
+    def descend( self, scope ):     # ParameterDeclaration | ParameterList , ParameterDeclaration
+        super().descend( scope )
+        self.parameters = ( [ self[ 0 ].parameter ] if len( self ) == 1 else
+            ( self[ 0 ].parameters + [ self[ 2 ].parameter ] ) )
+
+class ParameterDeclaration( Unit ):
+    def __init__( self, depth ):
+        super().__init__( depth )
+        self.parameter = None
+
+    def descend( self, scope ):
+        super().descend( scope )    # TypeName IDN | TypeName IDN []
+        self.parameter = FunctionParameter( self[ 1 ].content,
+            ( self[ 0 ].type if len( self ) == 2 else self[ 0 ].type.to_array() ) )
+
+
+class ComplexInstruction( Unit ):
+    def descend( self, scope ):     # { InstructionList } | { DeclarationList InstructionList }
+        local_scope = Scope( scope )
+        return self[ 1 ].descend( local_scope ) + ( self[ 2 ].descend( local_scope ) if len( self ) == 4 else [] )
+
+class InstructionList( Unit ): pass
+class Instruction( Unit ): pass
+class ExpressionInstruction( Unit ): pass
+class BranchInstruction( Unit ): pass
+class LoopInstruction( Unit ): pass
+class JumpInstruction( Unit ): pass
+
+class DeclarationList( Unit ):
+    def descend( self, scope ):     # Declaration | DeclarationList Declaration
+        return self[ 0 ].descend( scope ) + ( self[ 1 ].descend( scope ) if len( self ) == 2 else [] )
+
+class Declaration( Unit ):
+    def descend( self, scope ):     # TypeName InitDeclaratorList ;
+        return self[ 1 ].descend( scope, self[ 0 ].type )
+
+class InitDeclaratorList( Unit ):
+    def descend( self, scope, inherited_type ):     # InitDeclarator | InitDeclaratorList , InitDeclarator
+        return self[ 0 ].descend( scope, inherited_type ) + ( self[ 1 ].descend( scope, inherited_type ) if len( self ) == 3 else [] )
+
+class InitDeclarator( Unit ):
+    def descend( self, scope, inherited_type ):     # DirectDeclarator | DirectDeclarator = Initializer
+        code = self[ 0 ].descend( scope, inherited_type )
+        if len( self == 3 ): raise NotImplementedError
+
+class DirectDeclarator( Unit ):
+    def descend( self, scope, inherited_type ):     # IDN | IDN [ BROJ ] | IDN ( VOID ) | IDN ( ParameterList )
+        if len( self ) == 1:                        # Defining an int or a char
+            if scope.depth == 0:                    # Global variable
+                label = FRISC.get_next_variable_label()
+                location = FRISC.get_next_data_location( inherited_type.size )
+                var = Variable( self[ 0 ].content, inherited_type, '({})'.format( label ) )
+                FRISC.place_data_in_memory( [ '\tORG {:X}'.format( location ), '' ] )
+                return []
+            else:
+                print( scope.local_vars )
+                # var = Variable( self[ 0 ].content, inherited_type, '(R5+{:X})'.format(  ) )
+                return NotImplementedError
+
+
+class Initializer( Unit ): pass
+class ArgumentList( Unit ): pass
+
+class AssignmentExpressionList( Unit ): pass
+class Expression( AbstractExpression ): pass
+class AssignmentExpression( AbstractExpression ): pass
+class PostfixExpression( AbstractExpression ): pass
+class PrimaryExpression( AbstractExpression ): pass
+class LogicalOrExpression( AbstractExpression ): pass
+class LogicalAndExpression( AbstractExpression ): pass
+class BinaryOrExpression( AbstractExpression ): pass
+class BinaryXorExpression( AbstractExpression ): pass
+class BinaryAndExpression( AbstractExpression ): pass
+class RelationalExpression( AbstractExpression ): pass
+class EqualityExpression( AbstractExpression ): pass
+class AdditiveExpression( AbstractExpression ): pass
+class MultiplicativeExpression( AbstractExpression ): pass
+class CastExpression( AbstractExpression ): pass
+class UnaryExpression( AbstractExpression ): pass
+
+class UnaryOperator( Unit ): pass
 
 class TypeName( Unit ):
-    def __init__( self, depth, scope ):
-        super().__init__( depth, scope )
+    def __init__( self, depth ):
+        super().__init__( depth )
         self.type = Undefined
-
-    def process( self ):
-        if len( self ) == 1:    # TypeSpecifier
-            self.type = self[ 0 ].type
-        elif len( self ) == 2:  # const TypeSpecifier
-            self.type = self[ 0 ].type.to_const()
+    def descend( self, scope ): # TypeSpecifier | CONST TypeSpecifier
+        super().descend( scope )
+        self.type = self[ 0 ].type if len( self ) == 1 else self[ 1 ].type
 
 class TypeSpecifier( Unit ):
-    def __init__( self, depth, scope ):
-        super().__init__( depth, scope )
+    def __init__( self, depth ):
+        super().__init__( depth )
         self.type = Undefined
+    def descend( self, scope ):
+        self.type = { 'KR_VOID' : Void, 'KR_INT' : Int, 'KR_CHAR' : Char }[ self[ 0 ].name ]
 
-    def process( self ):
-        if self[ 0 ].token.name == 'KR_VOID':
-            self.type = Void
-        elif self[ 0 ].token.name == 'KR_INT':
-            self.type = Int
-        elif self[ 0 ].token.name == 'KR_CHAR':
-            self.type = Char
-
+################################################################################
+# Constructing units from input                                                #
 ################################################################################
 
 _units = {
@@ -353,7 +180,7 @@ _units = {
     '<vanjska_deklaracija>'         : ExternalDeclaration,
     '<definicija_funkcije>'         : FunctionDefinition,
     '<lista_parametara>'            : ParameterList,
-    '<deklaracija_parametara>'      : ParameterDeclaration,
+    '<deklaracija_parametra>'       : ParameterDeclaration,
     '<slozena_naredba>'             : ComplexInstruction,
     '<lista_naredbi>'               : InstructionList,
     '<naredba>'                     : Instruction,
@@ -363,8 +190,8 @@ _units = {
     '<naredba_skoka>'               : JumpInstruction,
     '<lista_deklaracija>'           : DeclarationList,
     '<deklaracija>'                 : Declaration,
-    '<lista_init_deklaratora>'      : InitDeclarationList,
-    '<init_deklarator>'             : InitDeclaration,
+    '<lista_init_deklaratora>'      : InitDeclaratorList,
+    '<init_deklarator>'             : InitDeclarator,
     '<izravni_deklarator>'          : DirectDeclarator,
     '<inicijalizator>'              : Initializer,
     '<lista_izraza_pridruzivanja>'  : AssignmentExpressionList,
@@ -372,7 +199,7 @@ _units = {
     '<izraz_pridruzivanja>'         : AssignmentExpression,
     '<postfiks_izraz>'              : PostfixExpression,
     '<primarni_izraz>'              : PrimaryExpression,
-    '<lista_argumentata>'           : ArgumentList,
+    '<lista_argumenata>'            : ArgumentList,
     '<log_ili_izraz>'               : LogicalOrExpression,
     '<log_i_izraz>'                 : LogicalAndExpression,
     '<bin_ili_izraz>'               : BinaryOrExpression,
