@@ -1,0 +1,3 @@
+[submodule "Lab4/FRISCjs"]
+	path = Lab4/FRISCjs
+	url = https://github.com/fer-ppj/FRISCjs
