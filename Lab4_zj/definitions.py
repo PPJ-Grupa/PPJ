@@ -16,7 +16,7 @@ class FRISC:
     DATA_SPACE_POINTER = _DATA_SPACE_ORIGIN
 
     FUNCTION_LABEL_COUNT = 0
-    VALUE_LABEL_COUNT = 0
+    DATA_LABEL_COUNT = 0
     GENERIC_LABEL_COUNT = 0
 
     _function_labels = {}
@@ -34,9 +34,9 @@ class FRISC:
         return 'FUNC_{}'.format( current )
 
     @staticmethod
-    def get_next_variable_label():
-        current = FRISC.VARIABLE_LABEL_COUNT
-        FRISC.VARIABLE_LABEL_COUNT += 1
+    def get_next_data_label():
+        current = FRISC.DATA_LABEL_COUNT
+        FRISC.DATA_LABEL_COUNT += 1
         return 'DATA_{}'.format( current )
 
     @staticmethod
@@ -165,26 +165,49 @@ class FunctionType( Type ):
 class Value:
     def place_on_stack( self ): raise NotImplementedError
 
+class ArrayAccess( Value ):
+    def __init__( self, variable, index ):
+        self.variable = variable
+        self.index = index
+    def place_on_stack( self ):
+        pass
+    def store_from_stack( self ):
+        pass
+
 class TopOfStack( Value ):
     def place_on_stack( self ): return []
 
 class Constant( Value ):
-    def __init__( self, const_value, const_type ):
+    def __init__( self, const_value, const_type, array_size = None ):
         self.value = const_value
         self.type = const_type
+        self.array_size = array_size
+        self.is_array = array_size is not None
+
+        if self.is_array: raise NotImplementedError
+
+        self.label = FRISC.get_next_data_label()
+        self.location = FRISC.get_next_data_location( 4 )
+        FRISC.place_data_in_memory( [ '\tORG {:X}'.format( self.location ), self.label, '\tDW {:X}'.format( self.value ) ] )
 
     def place_on_stack( self ):
         if self.type.is_array(): raise ValueError( 'Cannot push array on stack' )
-        return [ '\tLOAD R0, ({})'.format(), '\tPUSH R0' ]
+        return [ '\tLOAD R0, ({})'.format( self.label ), '\tPUSH R0' ]
 
 class Variable( Value ):
-    def __init__( self, var_name, var_type, load_key = None ):
+    def __init__( self, var_name, var_type, load_key = None, array_size = None ):
         self.name = var_name
         self.type = var_type
         self.load_key = load_key
+        self.array_size = array_size
+        self.is_array = array_size is not None
     def place_on_stack( self ):
         if not self.load_key: raise ValueError( 'Unknown location' )
-        return [ '\tLOAD R0, ({})'.format( self.load_key ), '\tPUSH R0' ]        
+        return [ '\tLOAD R0, {}'.format( self.load_key ), '\tPUSH R0' ]
+    def store_from_stack( self ):
+        if not self.load_key: raise ValueError( 'Unknown location' )
+        return [ '\tPOP R0', '\tSTORE R0, {}'.format( self.load_key ) ]
+    def __repr__( self ):   return '{} :: {}@{}'.format( self.name, self.type, self.load_key )
 
 class FunctionParameter:
     def __init__( self, param_name, param_type ):
@@ -193,7 +216,7 @@ class FunctionParameter:
     def __repr__( self ): return '{} {}'.format( self.name, self.type )
 
 class Function:
-    def __init__( self, func_name, func_type, defined ):
+    def __init__( self, func_name, func_type ):
         self.name = func_name
         self.type = func_type
         self.label = FRISC.get_function_label( self.name )
@@ -218,18 +241,27 @@ class Scope:
     def __init__( self, parent = None ):
         self.parent = parent
         self.identifiers = {}
-        self.depth = self.parent.depth if parent is not None else 0
+        self.depth = self.parent.depth+1 if parent is not None else 0
         self.scope_num = Scope._scope_count
         self.local_vars = 0
         Scope._scope_count += 1
 
-    def __str__( self ):                    return 'Scope {} :: {}'.format( self.scope_num, self.identifiers )
+    def __str__( self ):                    return 'Scope {}[{}] :: {}'.format( self.scope_num, self.depth, self.identifiers )
     def __contains__( self, name ):         return True if name in identifiers else ( name in self.parent if self.parent is not None else False )
     def __getitem__( self, name ):          return self.identifiers[ name ] if name in self.identifiers else ( self.parent[ name ] if self.parent is not None else None )
     def __setitem__( self, name, value ):   self.identifiers[ name ] = value
-    def make_local_var( self, size ):       if self.depth > 1: self.parent.make_local_var( size )
-                                            else: self.local_vars += size
+    def get_local_vars( self ):             return ( self.local_vars + 4 ) if self.depth < 2 else self.parent.get_local_vars()
+    def make_local_var( self, size ):
+        if self.depth > 1: self.parent.make_local_var( size )
+        else: self.local_vars += size
 
+
+# Labelling ####################################################################
+
+class Labels:
+    def __init__( self, ret_label, loop_label = None ):
+        self.ret = ret_label
+        self.loop = loop_label
 
 ################################################################################
 # Generator utilities                                                          #

@@ -30,9 +30,7 @@ class AbstractExpression( Unit ):
         self.result = None
         self.type = Undefined
 
-class AbstractInstruction( Unit ):
-    pass
-    # Have a parent loop label name
+class AbstractInstruction( Unit ): pass
 
 ################################################################################
 # Semantic units                                                               #
@@ -48,11 +46,10 @@ class FunctionDefinition( Unit ):
         self.parameters = []
 
     def descend( self, scope ): # TypeName IDN ( VOID | ParameterList ) ComplexInstruction
-        super().descend( scope )
         self.parameters = self[ 3 ].parameters if isinstance( self[ 3 ], ParameterList ) else []
         parameter_types = [ param.type for param in self.parameters ] if self.parameters else Void
 
-        self.function = Function( self[ 1 ].content, FunctionType( self[ 0 ].type, parameter_types ), True )
+        self.function = Function( self[ 1 ].content, FunctionType( self[ 0 ].type, parameter_types ) )
         scope[ self[ 1 ].content ] = self.function
         if self.function.name == 'main': FRISC.register_main_function( self.function.label )
 
@@ -60,12 +57,14 @@ class FunctionDefinition( Unit ):
         for i, param in enumerate( self.parameters ):
             local_scope[ param.name ] = Variable( param.name, param.type, load_key = '(R5-{:X})'.format( 4*( 2+i ) ) )
 
-        child_code = self[ 5 ].descend( local_scope )
-        self.function.create_location( 16 + len( child_code ) )
+        labels = Labels( FRISC.get_next_generic_label() )
 
-        code = [ '', '\tORG {:X}'.format( self.function.location ), self.function.label, '\tPUSH R5', '\tMOVE SP, R5' ]
+        child_code = self[ 5 ].descend( local_scope, labels )
+        self.function.create_location( 24 + 4*len( child_code ) )
+
+        code = [ '\tORG {:X}'.format( self.function.location ), self.function.label, '\tPUSH R5', '\tMOVE SP, R5', '\tSUB SP, {:X}, SP'.format( local_scope.local_vars ) ]
         code += child_code
-        code += [ '\tADD SP, {:X}, SP'.format( local_scope.local_vars ), '\tPOP R5', '\tRET' ]
+        code += [ labels.ret, '\tADD SP, {:X}, SP'.format( local_scope.local_vars ), '\tPOP R5', '\tRET', '' ]
 
         FRISC.place_function_in_memory( code )
 
@@ -91,14 +90,34 @@ class ParameterDeclaration( Unit ):
 
 
 class ComplexInstruction( Unit ):
-    def descend( self, scope ):     # { InstructionList } | { DeclarationList InstructionList }
+    def descend( self, scope, labels ):     # { InstructionList } | { DeclarationList InstructionList }
         local_scope = Scope( scope )
-        return self[ 1 ].descend( local_scope ) + ( self[ 2 ].descend( local_scope ) if len( self ) == 4 else [] )
+        if len( self ) == 3: return self[ 1 ].descend( local_scope, labels )
+        return self[ 1 ].descend( local_scope ) + self[ 2 ].descend( local_scope, labels )
 
-class InstructionList( Unit ): pass
-class Instruction( Unit ): pass
-class ExpressionInstruction( Unit ): pass
-class BranchInstruction( Unit ): pass
+class InstructionList( Unit ):
+    def descend( self, scope, labels ):
+        code = []
+        for child in self.children:
+            code += child.descend( scope, labels )
+        return code
+
+class Instruction( Unit ):
+    def descend( self, scope, labels ):
+        return self[ 0 ].descend( scope, labels )
+
+class ExpressionInstruction( Unit ):
+    def descend( self, scope, labels ):     # ; | Expression ;
+        if len( self == 1 ): return []
+        return self[ 0 ].descend( scope )
+
+class BranchInstruction( Unit ):
+    def descend( self, scope, labels ):     # IF ( Expression ) Instruction | IF ( Expression ) Instruction ELSE Instruction
+        if len( self ) == 5:
+            pass
+        else:
+            pass
+
 class LoopInstruction( Unit ): pass
 class JumpInstruction( Unit ): pass
 
@@ -108,6 +127,7 @@ class DeclarationList( Unit ):
 
 class Declaration( Unit ):
     def descend( self, scope ):     # TypeName InitDeclaratorList ;
+        self[ 0 ].descend( scope )
         return self[ 1 ].descend( scope, self[ 0 ].type )
 
 class InitDeclaratorList( Unit ):
@@ -116,32 +136,95 @@ class InitDeclaratorList( Unit ):
 
 class InitDeclarator( Unit ):
     def descend( self, scope, inherited_type ):     # DirectDeclarator | DirectDeclarator = Initializer
-        code = self[ 0 ].descend( scope, inherited_type )
-        if len( self == 3 ): raise NotImplementedError
+        lvalue = self[ 0 ].descend( scope, inherited_type )     # Will be None if declaring a function
+        code = []
+        if len( self ) == 3:
+            code = self[ 2 ].descend( scope )
+
+        return code
 
 class DirectDeclarator( Unit ):
     def descend( self, scope, inherited_type ):     # IDN | IDN [ BROJ ] | IDN ( VOID ) | IDN ( ParameterList )
         if len( self ) == 1:                        # Defining an int or a char
             if scope.depth == 0:                    # Global variable
-                label = FRISC.get_next_variable_label()
-                location = FRISC.get_next_data_location( inherited_type.size )
+                label = FRISC.get_next_data_label()
+                location = FRISC.get_next_data_location( inherited_type.size() )
                 var = Variable( self[ 0 ].content, inherited_type, '({})'.format( label ) )
-                FRISC.place_data_in_memory( [ '\tORG {:X}'.format( location ), '' ] )
-                return []
-            else:
-                print( scope.local_vars )
-                # var = Variable( self[ 0 ].content, inherited_type, '(R5+{:X})'.format(  ) )
-                return NotImplementedError
+                scope[ var.name ] = var
+                FRISC.place_data_in_memory( [ '\tORG {:X}'.format( location ), '\tDS {:X}'.format( inherited_type.size() ), '' ] )
+                return var
+            else:                                   # Local array
+                var = Variable( self[ 0 ].content, inherited_type, '(R5+{:X})'.format( 4*scope.get_local_vars() ) )
+                scope.make_local_var( 4 )
+                scope[ var.name ] = var
+                return var
+        elif self[ 1 ].name == 'L_UGL_ZAGRADA':     # Defining an int or char array
+            if scope.depth == 0:                    # Global array
+                size = int( self[ 2 ].content )
+                label = FRISC.get_next_data_label()
+                location = FRISC.get_next_data_location( inherited_type.to_array().size( size ) )
+                var = Variable( self[ 0 ].content, inherited_type.to_array(), '#'+label, size )
+                scope[ var.name ] = var
+                FRISC.place_data_in_memory( [ '\tORG {:X}'.format( location ), '\tDS {:X}'.format( var.type.size( var.array_size ) ), '' ] )
+                return var
+            else:                                   # Local array
+                size = int( self[ 2 ].content )
+                var = Variable( self[ 0 ].content, inherited_type.to_array(), '_R5+{:X}'.format( scope.get_local_vars() ), size )
+                scope.make_local_var( inherited_type.to_array().size( size ) )
+                scope[ var.name ] = var
+                return var
+        else:                                       # Function definition
+            parameters = self[ 3 ].parameters if isinstance( self[ 3 ], ParameterList ) else []
+            parameter_types = [ param.type for param in parameters ] if parameters else Void
+            scope[ self[ 0 ].content ] = Function( self[ 0 ].content, FunctionType( inherited_type, parameter_types ) )
 
+class Initializer( Unit ):
+    def __init__( self, depth ):
+        super().__init__( depth )
+        self.value = Value
 
-class Initializer( Unit ): pass
+    def descend( self, scope ):     # AssignmentExpression | { AssignmentExpressionList }
+        if len( self ) == 1:
+            self[ 0 ].descend( scope )
+            self.value = self[ 0 ].value
+        else:
+            self[ 1 ].descend( scope )
+            self.value = self[ 0 ].value
+
 class ArgumentList( Unit ): pass
 
 class AssignmentExpressionList( Unit ): pass
 class Expression( AbstractExpression ): pass
 class AssignmentExpression( AbstractExpression ): pass
-class PostfixExpression( AbstractExpression ): pass
-class PrimaryExpression( AbstractExpression ): pass
+class PostfixExpression( AbstractExpression ):
+    def descend( self, scope ):     # PrimaryExpression | PostfixExpression [ Expression ] | PostfixExpression () | PostfixExpression ( ArgumentList ) | PostfixExpression ++ | PostfixExpression --
+        if len( self ) == 1:
+            self[ 0 ].descend( scope )
+            self.value = self[ 0 ].value
+            return []
+        elif len( self ) == 2:
+            self[ 0 ].descend( scope )
+            if self[ 1 ].name == 'OP_INC':
+                raise NotImplementedError
+            else:
+                raise NotImplementedError
+        elif len( self ) == 3:
+            self[ 0 ].descend( scope )
+
+
+class PrimaryExpression( AbstractExpression ):
+    def descend( self, scope ):     # IDN | BROJ | ZNAK | NIZ_ZNAKOVA | ( Expression )
+        if len( self ) == 1:
+            if self[ 0 ].name == 'IDN':     #
+                self.result = scope[ self[ 0 ].content ]
+            elif self[ 0 ].name == 'BROJ':  #
+                self.result = Constant( int( self[ 0 ].content ), Int )
+            elif self[ 0 ].name == 'ZNAK':
+                self.result = Constant( int( self[ 0 ].content ), Char )
+            else: raise NotImplementedError
+        else:
+            self.value = self[ 1 ].value
+
 class LogicalOrExpression( AbstractExpression ): pass
 class LogicalAndExpression( AbstractExpression ): pass
 class BinaryOrExpression( AbstractExpression ): pass
