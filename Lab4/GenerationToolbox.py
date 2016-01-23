@@ -48,10 +48,10 @@ class Function():
             self.name = name
 
         def load(self, reg):
-            return [Instruction("LOAD %s, (R7 + %d)" % (reg, self.offset + self.context.offset))]
+            return [Instruction("LOAD %s, (R7 + %X)" % (reg, self.offset + self.context.offset))]
 
         def save(self, reg):
-            return [Instruction("LOAD %s, (R7 + %d)" % (reg, self.offset + self.context.offset))]
+            return [Instruction("LOAD %s, (R7 + %X)" % (reg, self.offset + self.context.offset))]
 
     def __init__(self, name, outer_variable, params=[]):
         self.name = name
@@ -62,8 +62,8 @@ class Function():
         self.__saveContext()
         self.offset = 0
 
-        for var in params:
-            raise NotImplemented
+        for i, var in enumerate(params):
+            self.variable[var] = self.LocalVariable(var, self, i * 4 + 24)
 
     def defVariable(self, name):
         self.offset += 4
@@ -79,18 +79,26 @@ class Function():
             self.instuctions.append(Instruction("POP R%d" % i))
         self.instuctions.append(Instruction("RET"))
 
+    def __loadInto(self, value, reg):
+        if type(value) == int:  # constant
+            self.constants.add(value)
+            self.instuctions.append(Instruction("LOAD %s, (C_%d)" % (reg, value)))
+        elif type(value) == str:  # var name
+            self.instuctions.extend(self.variable[value].load(reg))
+        else:
+            raise NotImplemented
+
     def setReturnConstant(self, value):
-        self.constants.add(value)
-        self.instuctions.append(Instruction("LOAD R6, (C_%d)" % value))
+        self.__loadInto(value, "R6")
         self.__return()
 
     def setReturnVariable(self, name):
-        self.instuctions.extend(self.variable[name].load("R6"))
+        self.__loadInto(name, "R6")
         self.__return()
 
     def assignBinaryOperation(self, op, a, b, ret=None):
-        self.instuctions.extend(self.variable[a].load("R0"))
-        self.instuctions.extend(self.variable[b].load("R1"))
+        self.__loadInto(a, "R0")
+        self.__loadInto(b, "R1")
         self.instuctions.append(Instruction(op + " R0, R1, R6"))
         if ret is not None:
             self.instuctions.extend(self.variable[ret].save("R6"))
@@ -100,12 +108,12 @@ class Function():
 
     def assignFunc(self, f, args, ret=None):
         for arg in args:
-            self.instuctions.extend(self.variable[arg].load("R0"))
-            self.instuctions.append(Instruction("STORE R0"))
+            self.__loadInto(arg, "R0")
+            self.instuctions.append(Instruction("PUSH R0"))
         self.instuctions.append(Instruction("CALL " + f.label))
         if ret is not None:
             self.instuctions.extend(self.variable[ret].save("R6"))
-        self.instuctions.append(Instruction("ADD R7, %d, R7" % (len(args) * 4)))
+        self.instuctions.append(Instruction("ADD R7, %X, R7" % (len(args) * 4)))
 
     def __frisc__(self):
         code = self.instuctions

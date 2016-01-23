@@ -62,5 +62,16 @@ class TestStringMethods(unittest.TestCase):
         P.addFunction(main)
         self.helper(P, 123)
 
+    def test_ex12(self):
+        P = Program("ex12")
+        f = Function("f", P.globals, ["x"])
+        f.assignAdd("x", 5)
+
+        main = Function("main", P.globals)
+        main.assignFunc(f, [7])
+
+        P.addFunction(f)
+        P.addFunction(main)
+        self.helper(P, 12)
 if __name__ == '__main__':
     unittest.main()
