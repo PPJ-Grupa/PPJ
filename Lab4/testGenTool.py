@@ -19,7 +19,7 @@ class TestStringMethods(unittest.TestCase):
 
     def test_example_1(self):
         P = Program("ex1")
-        f = Function("F_MAIN", P.globals)
+        f = Function("MAIN", P.globals)
         f.setReturnConstant(31)
         P.addFunction(f)
         self.helper(P, 31)
@@ -28,14 +28,14 @@ class TestStringMethods(unittest.TestCase):
         P = Program("ex2")
         P.defineGlobal("x", 42)
 
-        f = Function("F_MAIN", P.globals)
+        f = Function("MAIN", P.globals)
         f.setReturnVariable("x")
         P.addFunction(f)
         self.helper(P, 42)
 
     def test_example03(self):
         P = Program("ex3")
-        f = Function("F_MAIN", P.globals)
+        f = Function("MAIN", P.globals)
         f.setReturnConstant(1234567890)
         P.addFunction(f)
         self.helper(P, 1234567890)
@@ -45,10 +45,22 @@ class TestStringMethods(unittest.TestCase):
         P.defineGlobal("x", 15)
         P.defineGlobal("y", 16)
 
-        f = Function("F_MAIN", P.globals)
+        f = Function("MAIN", P.globals)
         f.assignAdd("x", "y")
         P.addFunction(f)
         self.helper(P, 31)
+
+    def test_ex11(self):
+        P = Program("ex11")
+        f = Function("F", P.globals)
+        f.setReturnConstant(123)
+
+        main = Function("MAIN", P.globals)
+        main.assignFunc(f, [])
+
+        P.addFunction(f)
+        P.addFunction(main)
+        self.helper(P, 123)
 
 if __name__ == '__main__':
     unittest.main()

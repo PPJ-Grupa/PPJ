@@ -55,6 +55,7 @@ class Function():
 
     def __init__(self, name, outer_variable, params=[]):
         self.name = name
+        self.label = "F_" + name.upper()
         self.constants = set()
         self.variable = ChainMap(dict(), outer_variable)
         self.instuctions = []
@@ -101,7 +102,7 @@ class Function():
         for arg in args:
             self.instuctions.extend(self.variable[arg].load("R0"))
             self.instuctions.append(Instruction("STORE R0"))
-        self.instuctions.append(Instruction("CALL F_" + f.name))
+        self.instuctions.append(Instruction("CALL " + f.label))
         if ret is not None:
             self.instuctions.extend(self.variable[ret].save("R6"))
         self.instuctions.append(Instruction("ADD R7, %d, R7" % (len(args) * 4)))
@@ -116,7 +117,7 @@ class Function():
         for c in self.constants:
             code.append(Instruction("DW %%D %d" % c, label="C_" + str(c)))
 
-        code[0].label = self.name
+        code[0].label = self.label
         return code
 
 
