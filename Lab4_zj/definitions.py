@@ -41,10 +41,10 @@ class FRISC:
         return 'DATA_{}'.format( current )
 
     @staticmethod
-    def get_next_generic_label():
+    def get_next_generic_label( label = 'LABL'):
         current = FRISC.GENERIC_LABEL_COUNT
         FRISC.GENERIC_LABEL_COUNT += 1
-        return 'LABL_{}'.format( current )
+        return '{}_{}'.format( label, current )
 
     @staticmethod
     def get_function_label( name ):
@@ -70,7 +70,7 @@ class FRISC:
 
     @staticmethod
     def generate_header():
-        FRISC._header_code += [ '\t`ORG {:X}'.format( FRISC._INIT_ORIGIN ), '\tMOVE {:X}, SP'.format( FRISC._INITIAL_STACK_POINTER ) ]
+        FRISC._header_code += [ '\t`ORG 0{:X}'.format( FRISC._INIT_ORIGIN ), '\tMOVE 0{:X}, SP'.format( FRISC._INITIAL_STACK_POINTER ) ]
 
     @staticmethod
     def generate_main_call():
@@ -169,6 +169,9 @@ class FunctionType( Type ):
 class Value:
     def place_on_stack( self ): raise NotImplementedError
 
+class VoidValue( Value ):
+    def place_on_stack( self ): raise NotImplementedError # return []
+
 class ArrayAccess( Value ):
     def __init__( self, variable, index ):
         self.variable = variable
@@ -198,8 +201,8 @@ class Constant( Value ):
         for i in range( 4 ):
             bvals.append( tvalue & 255 )
             tvalue >>= 8
-        FRISC.place_data_in_memory( [ '\t`ORG {:X}'.format( self.location ), self.label,
-            '\t`DW {:03X},{:03X},{:03X},{:03X}'.format( bvals[ 0 ], bvals[ 1 ], bvals[ 2 ], bvals[ 3 ] ) ] )
+        FRISC.place_data_in_memory( [ '\t`ORG 0{:X}'.format( self.location ), self.label,
+            '\t`DW 0{:X}, 0{:X}, 0{:X}, 0{:X}'.format( bvals[ 0 ], bvals[ 1 ], bvals[ 2 ], bvals[ 3 ] ), '' ] )
 
     def place_on_stack( self ):
         if self.type.is_array(): raise ValueError( 'Cannot push array on stack' )
@@ -233,13 +236,17 @@ class Function:
         self.label = FRISC.get_function_label( self.name )
         self.location = None
 
-    def __str__( self ): return '{} :: {}; {}@{}'.format( self.name, self.type, self.label, self.location )
-    def create_location( self, size ): self.location = FRISC.get_next_function_location( size )
-    def call( self, params ):   # Pushing parameters in reverse order, then calling function, afterwards popping params
-        code = []
+    def __str__( self ):                return '{} :: {}; {}@{}'.format( self.name, self.type, self.label, self.location )
+    def create_location( self, size ):  self.location = FRISC.get_next_function_location( size )
+    def get_result( self ):             return VoidValue() if self.type.return_type == Void else TopOfStack()
+    def call( self, params = [] ):      # Pushing parameters in reverse order, then calling function, afterwards popping params
+        code = [ ';=== Calling {} ===;'.format( self.name ) ]
         for var in reversed( params ):
             code += var.place_on_stack()
         code += [ '\tCALL ' + self.label, '\tADD SP, {}, SP'.format( len( params )*4 ) ]
+        if self.type.return_type != Void:
+            code += [ '\tPUSH R6' ]
+        code += [ ';=== Returned from {} ===;'.format( self.name ) ]
         return code
 
 

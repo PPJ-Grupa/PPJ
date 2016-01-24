@@ -30,6 +30,11 @@ class AbstractExpression( Unit ):
         self.result = None
         self.type = Undefined
 
+    def bool_evaluate( self ):     # Places 0 or 1 on top of stack
+        code = self.result.place_on_stack()
+        code += [ '\tPOP R0', '\tCMP R0, 0', '\tMOVE SR, R0', '\tAND R0, 8, R0', '\tXOR R0, 8, R0', '\tSHR R0, 3, R0', '\tPUSH R0' ]
+        return code
+
 class AbstractInstruction( Unit ): pass
 
 ################################################################################
@@ -50,6 +55,8 @@ class FunctionDefinition( Unit ):
         self.parameters = []
 
     def descend( self, scope ): # TypeName IDN ( VOID | ParameterList ) ComplexInstruction
+        self[ 0 ].descend( scope )
+        self[ 3 ].descend( scope )
         self.parameters = self[ 3 ].parameters if isinstance( self[ 3 ], ParameterList ) else []
         parameter_types = [ param.type for param in self.parameters ] if self.parameters else Void
 
@@ -59,16 +66,17 @@ class FunctionDefinition( Unit ):
 
         local_scope = Scope( scope )
         for i, param in enumerate( self.parameters ):
-            local_scope[ param.name ] = Variable( param.name, param.type, load_key = '(R5-{:X})'.format( 4*( 2+i ) ) )
+            local_scope[ param.name ] = Variable( param.name, param.type, load_key = '(R5+0{:X})'.format( 4*( 2+i ) ) )
 
-        labels = Labels( FRISC.get_next_generic_label() )
+        labels = Labels( FRISC.get_next_generic_label( 'FEND' ) )
 
         child_code = self[ 5 ].descend( local_scope, labels )
         self.function.create_location( 24 + 4*len( child_code ) )
 
-        code = [ '\t`ORG {:X}'.format( self.function.location ), self.function.label, '\tPUSH R5', '\tMOVE SP, R5', '\tSUB SP, {:X}, SP'.format( local_scope.local_vars ) ]
+        code = [ ';=== Defining {} ===;'.format( self.function.name ) ]
+        code += [ '\t`ORG 0{:X}'.format( self.function.location ), self.function.label, '\tPUSH R5', '\tMOVE SP, R5', '\tSUB SP, 0{:X}, SP'.format( local_scope.local_vars ) ]
         code += child_code
-        code += [ labels.ret, '\tADD SP, {:X}, SP'.format( local_scope.local_vars ), '\tPOP R5', '\tRET', '' ]
+        code += [ labels.ret, '\tADD SP, 0{:X}, SP'.format( local_scope.local_vars ), '\tPOP R5', '\tRET', '' ]
 
         FRISC.place_function_in_memory( code )
 
@@ -112,15 +120,29 @@ class Instruction( Unit ):
 
 class ExpressionInstruction( Unit ):
     def descend( self, scope, labels ):     # ; | Expression ;
-        if len( self == 1 ): return []
+        if len( self ) == 1: return []
         return self[ 0 ].descend( scope )
 
 class BranchInstruction( Unit ):
     def descend( self, scope, labels ):     # IF ( Expression ) Instruction | IF ( Expression ) Instruction ELSE Instruction
+        code = self[ 2 ].descend( scope )
+        code += [ ';=== Start IF ===;' ]
+        code += self[ 2 ].bool_evaluate()
         if len( self ) == 5:
-            raise NotImplementedError
+            skip_label = FRISC.get_next_generic_label( 'SKIF' )
+            code += [ '\tPOP R0', '\tCMP R0, 0', '\tJP_Z {}'.format( skip_label ) ]
+            code += self[ 4 ].descend( scope, labels )
+            code += [ skip_label ]
         else:
-            raise NotImplementedError
+            else_label = FRISC.get_next_generic_label( 'ELSE' )
+            end_label = FRISC.get_next_generic_label( 'NDIF' )
+            code += [ '\tPOP R0', '\tCMP R0, 0', '\tJP_Z {}'.format( else_label ) ]
+            code += self[ 4 ].descend( scope, labels )
+            code += [ '\tJP {}'.format( end_label ), else_label ]
+            code += self[ 6 ].descend( scope, labels )
+            code += [ end_label ]
+        code += [ ';=== End IF ===;' ]
+        return code
 
 class LoopInstruction( Unit ):
     def descend( self, scope, labels ):     # WHILE ( Expression ) Instruction | FOR ( ExpressionInstruction ExpressionInstruction ) Instruction | FOR ( ExpressionInstruction ExpressionInstruction Expression ) Instruction
@@ -178,10 +200,10 @@ class DirectDeclarator( Unit ):
                 location = FRISC.get_next_data_location( inherited_type.size() )
                 var = Variable( self[ 0 ].content, inherited_type, '({})'.format( label ) )
                 scope[ var.name ] = var
-                FRISC.place_data_in_memory( [ '\t`ORG {:X}'.format( location ), label, '\t`DS {:X}'.format( inherited_type.size() ), '' ] )
+                FRISC.place_data_in_memory( [ '\t`ORG 0{:X}'.format( location ), label, '\t`DS 0{:X}'.format( inherited_type.size() ), '' ] )
                 return var
-            else:                                   # Local array
-                var = Variable( self[ 0 ].content, inherited_type, '(R5+{:X})'.format( 4*scope.get_local_vars() ) )
+            else:                                   # Local variable
+                var = Variable( self[ 0 ].content, inherited_type, '(R5-0{:X})'.format( scope.get_local_vars() ) )
                 scope.make_local_var( 4 )
                 scope[ var.name ] = var
                 return var
@@ -192,11 +214,11 @@ class DirectDeclarator( Unit ):
                 location = FRISC.get_next_data_location( inherited_type.to_array().size( size ) )
                 var = Variable( self[ 0 ].content, inherited_type.to_array(), '#'+label, size )
                 scope[ var.name ] = var
-                FRISC.place_data_in_memory( [ '\t`ORG {:X}'.format( location ), '\t`DS {:X}'.format( var.type.size( var.array_size ) ), '' ] )
+                FRISC.place_data_in_memory( [ '\t`ORG 0{:X}'.format( location ), '\t`DS 0{:X}'.format( var.type.size( var.array_size ) ), '' ] )
                 return var
             else:                                   # Local array
                 size = int( self[ 2 ].content )
-                var = Variable( self[ 0 ].content, inherited_type.to_array(), '_R5+{:X}'.format( scope.get_local_vars() ), size )
+                var = Variable( self[ 0 ].content, inherited_type.to_array(), '_R5+0{:X}'.format( scope.get_local_vars() ), size )
                 scope.make_local_var( inherited_type.to_array().size( size ) )
                 scope[ var.name ] = var
                 return var
@@ -219,7 +241,19 @@ class Initializer( Unit ):
             self.result = self[ 1 ].result
         return code
 
-class ArgumentList( Unit ): pass
+class ArgumentList( Unit ):
+    def __init__( self, depth ):
+        super().__init__( depth )
+        self.params = []
+
+    def descend( self, scope ):     # AssignmentExpression | ArgumentList AssignmentExpression
+        code = self[ 0 ].descend( scope )
+        if len( self ) == 1:
+            self.params = [ self[ 0 ].result ]
+        else:
+            code += self[ 1 ].descend( scope )
+            self.params = self[ 0 ].result
+        return code
 
 class AssignmentExpressionList( Unit ): pass
 
@@ -240,28 +274,33 @@ class AssignmentExpression( AbstractExpression ):
             self.result = self[ 0 ].result
         else:
             code += self[ 2 ].descend( scope )
-            raise NotImplementedError
+            code += self[ 2 ].result.place_on_stack()
+            code += self[ 0 ].result.store_from_stack()
+            self.result = self[ 0 ].result
         return code
 
 class PostfixExpression( AbstractExpression ):
     def descend( self, scope ):     # PrimaryExpression | PostfixExpression [ Expression ] | PostfixExpression () | PostfixExpression ( ArgumentList ) | PostfixExpression ++ | PostfixExpression --
-        self[ 0 ].descend( scope )
+        code = self[ 0 ].descend( scope )
         if len( self ) == 1:
             self.result = self[ 0 ].result
-            return []
+            return code
         elif len( self ) == 2:
             if self[ 1 ].name == 'OP_INC':  # PostfixExpression ++
                 raise NotImplementedError
             else:                           # PostfixExpression --
                 raise NotImplementedError
         elif len( self ) == 3:              # PostfixExpression ()
-            raise NotImplementedError
+            self.result = self[ 0 ].result.get_result()
+            code += self[ 0 ].result.call()
         else:
+            code += self[ 2 ].descend( scope )
             if self[ 1 ].name == 'L_UGL_ZAGRADA':   # PostfixExpression [ Expression ]
-                self[ 2 ].descend( scope )
                 self.result = ArrayAccess( self[ 0 ].result, self[ 2 ].result )
             else:                           # PostfixExpression ( ArgumentList )
-                raise NotImplementedError
+                self.result = self[ 0 ].result.get_result()
+                code += self[ 0 ].result.call( self[ 2 ].params )
+        return code
 
 class PrimaryExpression( AbstractExpression ):
     def descend( self, scope ):     # IDN | BROJ | ZNAK | NIZ_ZNAKOVA | ( Expression )
@@ -271,7 +310,7 @@ class PrimaryExpression( AbstractExpression ):
             elif self[ 0 ].name == 'BROJ':
                 self.result = Constant( int( self[ 0 ].content ), Int )
             elif self[ 0 ].name == 'ZNAK':
-                self.result = Constant( int( self[ 0 ].content ), Char )
+                self.result = Constant( ord( self[ 0 ].content[ 1 ] ), Char )
             else: raise NotImplementedError
         else:
             self.result = self[ 1 ].result
@@ -350,8 +389,17 @@ class EqualityExpression( AbstractExpression ):
         if len( self ) == 1:
             self.result = self[ 0 ].result
         else:
-            raise NotImplementedError
-
+            code += self[ 2 ].descend( scope )
+            code += [ ';=== Begin EQU ===;' ]
+            code += self[ 0 ].result.place_on_stack()
+            code += self[ 2 ].result.place_on_stack()
+            code += [ '\tPOP R2', '\tPOP R1' ]
+            label1 = FRISC.get_next_generic_label( 'EQU1' )
+            label2 = FRISC.get_next_generic_label( 'EQU2' )
+            cond_code = { 'OP_EQ' : 'EQ', 'OP_NEQ' : 'NE' }[ self[ 1 ].name ]
+            code += [ '\tCMP R1, R2', '\tJP_{} {}'.format( cond_code, label1 ), '\tMOVE 0, R0', '\tPUSH R0', '\tJP {}'.format( label2 ), label1, '\tMOVE 1, R0', '\tPUSH R0', label2 ]
+            code += [ ';=== End EQU ===;' ]
+            self.result = TopOfStack()
         return code
 
 class RelationalExpression( AbstractExpression ):
@@ -360,9 +408,20 @@ class RelationalExpression( AbstractExpression ):
         if len( self ) == 1:
             self.result = self[ 0 ].result
         else:
-            raise NotImplementedError
+            code += self[ 2 ].descend( scope )
+            code += [ ';=== Begin REL ===;' ]
+            code += self[ 0 ].result.place_on_stack()
+            code += self[ 2 ].result.place_on_stack()
+            code += [ '\tPOP R2', '\tPOP R1' ]
+            label1 = FRISC.get_next_generic_label( 'CMP1' )
+            label2 = FRISC.get_next_generic_label( 'CMP2' )
+            cond_code = { 'OP_LT' : 'SLT', 'OP_GT' : 'SGT', 'OP_LTE' : 'SLE', 'OP_GTE' : 'SGE' }[ self[ 1 ].name ]
+            code += [ '\tCMP R1, R2', '\tJP_{} {}'.format( cond_code, label1 ), '\tMOVE 0, R0', '\tPUSH R0', '\tJP {}'.format( label2 ), label1, '\tMOVE 1, R0', '\tPUSH R0', label2 ]
+            code += [ ';=== End REL ===;' ]
+            self.result = TopOfStack()
         return code
 
+# DONE
 class AdditiveExpression( AbstractExpression ):
     def descend( self, scope ):     # MultiplicativeExpression | AdditiveExpression ( + | - ) MultiplicativeExpression
         code = self[ 0 ].descend( scope )
@@ -372,7 +431,7 @@ class AdditiveExpression( AbstractExpression ):
             code += self[ 2 ].descend( scope )
             code += self[ 2 ].result.place_on_stack()
             code += self[ 0 ].result.place_on_stack()
-            code += [ '\tPOP R1', '\tPOP R2', '\tADD R1, R2, R0', '\tPUSH R0' ]
+            code += [ '\tPOP R1', '\tPOP R2', '\tADD R1, R2, R0' if self[ 1 ].name == 'PLUS' else '\tSUB R1, R2, R0', '\tPUSH R0' ]
             self.result = TopOfStack()
         return code
 
@@ -385,6 +444,7 @@ class MultiplicativeExpression( AbstractExpression ):
             raise NotImplementedError
         return code
 
+# DONE
 class CastExpression( AbstractExpression ):
     def descend( self, scope ):     # UnaryExpression | ( TypeName ) CastExpression
         if len( self ) == 1:
@@ -398,9 +458,9 @@ class CastExpression( AbstractExpression ):
 class UnaryExpression( AbstractExpression ):
     def descend( self, scope ):     # PostfixExpression | ( ++ | -- ) UnaryExpression | UnaryOperator CastExpression
         if len( self ) == 1:
-            self[ 0 ].descend( scope )
+            code = self[ 0 ].descend( scope )
             self.result = self[ 0 ].result
-            return []
+            return code
         elif isinstance( self[ 0 ], UnaryOperator ):
             self[ 0 ].descend( scope )
             op = self[ 0 ].operator
@@ -412,15 +472,16 @@ class UnaryExpression( AbstractExpression ):
                 code += [ '\tPOP R0', '\tXOR R0, -1, R0', '\tADD R0, 1, R0', '\tPUSH R0' ]
             elif op == '~':
                 code += [ '\tPOP R0', '\tXOR R0, -1, R0', '\tPUSH R0' ]
-            else:   # !
+            else:     # !
                 pass
             self.result = TopOfStack()
             return code
         elif self[ 0 ].name == 'OP_INC':
             raise NotImplementedError
-        else:
+        else:                 # OP_DEC
             raise NotImplementedError
 
+# DONE
 class UnaryOperator( Unit ):
     def __init__( self, depth ):
         super().__init__( depth )
@@ -429,6 +490,7 @@ class UnaryOperator( Unit ):
     def descend( self, scope ):
         self.operator = { 'PLUS' : '+', 'MINUS' : '-', 'OP_TILDA' : '~', 'OP_NEG' : '!' }[ self[ 0 ].name ]
 
+# DONE
 class TypeName( Unit ):
     def __init__( self, depth ):
         super().__init__( depth )
@@ -437,12 +499,14 @@ class TypeName( Unit ):
         super().descend( scope )
         self.type = self[ 0 ].type if len( self ) == 1 else self[ 1 ].type
 
+# DONE
 class TypeSpecifier( Unit ):
     def __init__( self, depth ):
         super().__init__( depth )
         self.type = Undefined
     def descend( self, scope ):
         self.type = { 'KR_VOID' : Void, 'KR_INT' : Int, 'KR_CHAR' : Char }[ self[ 0 ].name ]
+
 
 ################################################################################
 # Constructing units from input                                                #
