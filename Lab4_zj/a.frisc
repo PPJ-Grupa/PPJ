@@ -1,104 +1,72 @@
-;========== OUTPUT MADE BY friscGEN 1.0.1 ============================================================
+;========== OUTPUT MADE BY friscGEN 1.0.1 ============================================================;
 	`ORG 00
 	MOVE 040000, SP
-	LOAD R0, (DATA_1)
-	PUSH R0
-	POP R0
-	STORE R0, (DATA_0)
-	CALL FUNC_0
+	CALL FUNC_1
 	HALT
 
-;=== Defining main ===;
+MULTPL
+	MOVE 0, R6
+MULOOP
+	CMP R2, 0
+	JP_Z MULEND
+	ADD R6, R1, R6
+	SUB R2, 1, R2
+	JP MULOOP
+MULEND
+	RET
+
+DIVIDE
+	MOVE 0, R6
+DIVLOP
+	SUB R1, R2, R1
+	JP_ULT DIVEND
+	ADD R6, 1, R6
+	JP DIVLOP
+DIVEND
+	RET
+
+MODULO
+	SUB R1, R2, R1
+	JP_ULT MODEND
+	JP MODULO
+MODEND
+	ADD R1, R2, R6
+	RET
+
+;=== Defining f ===;
 	`ORG 0200
 FUNC_0
 	PUSH R5
 	MOVE SP, R5
 	SUB SP, 00, SP
-;=== Begin EQU ===;
 	LOAD R0, (DATA_0)
-	PUSH R0
-	LOAD R0, (DATA_2)
-	PUSH R0
-	POP R2
-	POP R1
-	CMP R1, R2
-	JP_EQ EQU1_1
-	MOVE 0, R0
-	PUSH R0
-	JP EQU2_2
-EQU1_1
-	MOVE 1, R0
-	PUSH R0
-EQU2_2
-;=== End EQU ===;
-;=== Start IF ===;
-	POP R0
-	CMP R0, 0
-	MOVE SR, R0
-	AND R0, 8, R0
-	XOR R0, 8, R0
-	SHR R0, 3, R0
-	PUSH R0
-	POP R0
-	CMP R0, 0
-	JP_Z ELSE_3
-	LOAD R0, (DATA_3)
 	PUSH R0
 	POP R6
 	JP FEND_0
-	JP NDIF_4
-ELSE_3
-	LOAD R0, (DATA_4)
-	PUSH R0
-	LOAD R0, (DATA_0)
-	PUSH R0
-	POP R1
-	POP R2
-	SUB R1, R2, R0
-	PUSH R0
-	POP R0
-	STORE R0, (DATA_0)
-;=== Calling main ===;
-	CALL FUNC_0
-	ADD SP, 0, SP
-	PUSH R6
-;=== Returned from main ===;
-	LOAD R0, (DATA_5)
-	PUSH R0
-	POP R1
-	POP R2
-	ADD R1, R2, R0
-	PUSH R0
-	POP R6
-	JP FEND_0
-NDIF_4
-;=== End IF ===;
 FEND_0
+	ADD SP, 00, SP
+	POP R5
+	RET
+
+;=== Defining main ===;
+	`ORG 0228
+FUNC_1
+	PUSH R5
+	MOVE SP, R5
+	SUB SP, 00, SP
+;=== Calling f ===;
+	CALL FUNC_0
+	ADD SP, 00, SP
+	PUSH R6
+;=== Returned from f ===;
+	POP R6
+	JP FEND_1
+FEND_1
 	ADD SP, 00, SP
 	POP R5
 	RET
 
 	`ORG 01000
 DATA_0
-	`DS 04
-
-	`ORG 01004
-DATA_1
-	`DW 05, 00, 00, 00
-
-	`ORG 01008
-DATA_2
-	`DW 00, 00, 00, 00
-
-	`ORG 0100C
-DATA_3
-	`DW 00, 00, 00, 00
-
-	`ORG 01010
-DATA_4
-	`DW 01, 00, 00, 00
-
-	`ORG 01014
-DATA_5
-	`DW 01, 00, 00, 00
+	`DW 07B, 00, 00, 00
 

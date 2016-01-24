@@ -77,12 +77,18 @@ class FRISC:
         FRISC._main_call_code += [ '\tCALL {}'.format( FRISC.MAIN_LABEL ), '\tHALT', '' ]
 
     @staticmethod
+    def generate_extra_operators():
+        FRISC._code += [ 'MULTPL', '\tMOVE 0, R6', 'MULOOP', '\tCMP R2, 0', '\tJP_Z MULEND', '\tADD R6, R1, R6', '\tSUB R2, 1, R2', '\tJP MULOOP', 'MULEND', '\tRET', '' ]
+        FRISC._code += [ 'DIVIDE', '\tMOVE 0, R6', 'DIVLOP', '\tSUB R1, R2, R1', '\tJP_ULT DIVEND', '\tADD R6, 1, R6', '\tJP DIVLOP', 'DIVEND', '\tRET', '' ]
+        FRISC._code += [ 'MODULO', '\tSUB R1, R2, R1', '\tJP_ULT MODEND', '\tJP MODULO', 'MODEND', '\tADD R1, R2, R6', '\tRET', '' ]
+
+    @staticmethod
     def generate_final_code():
         FRISC._code = FRISC._header_code + FRISC._main_call_code + FRISC._code + FRISC._trailer_code
 
     @staticmethod
     def output_final_code():
-        print( ';' + '='*10 + ' OUTPUT MADE BY friscGEN 1.0.1 ' + '='*60 )
+        print( ';' + '='*10 + ' OUTPUT MADE BY friscGEN 1.0.1 ' + '='*60 + ';' )
         for line in FRISC._code:
             print( line )
 
@@ -177,12 +183,26 @@ class ArrayAccess( Value ):
         self.variable = variable
         self.index = index
     def place_on_stack( self ):
-        pass
+        code = [ ';=== Array element loading ===;' ]
+        code += self.variable.place_on_stack()
+        code += [ '\tPOP R4' ]
+        code += self.index.place_on_stack()
+        code += [ '\tPOP R1', '\tSHL R1, 2, R1', '\tADD R4, R1, R4', '\tLOAD R0, (R4)', '\tPUSH R0' ]
+        return code
     def store_from_stack( self ):
-        pass
+        code = [ ';=== Array element storing ===;' ]
+        code += self.variable.place_on_stack()
+        code += [ '\tPOP R4' ]
+        code += self.index.place_on_stack()
+        code += [ '\tPOP R1', '\tSHL R1, 2, R1', '\tADD R4, R1, R4', '\tPOP R0', '\tSTORE R0, (R4)' ]
+        return code
 
 class TopOfStack( Value ):
     def place_on_stack( self ): return []
+
+class Number( Value ):
+    def __init__( self, value ):    self.value = value
+    def place_on_stack( self ):     return [ '\tMOVE 0{:X}, R0'.format( self.value ), '\tPUSH R0' ]
 
 class Constant( Value ):
     def __init__( self, const_value, const_type, array_size = None ):
@@ -217,7 +237,11 @@ class Variable( Value ):
         self.is_array = array_size is not None
     def place_on_stack( self ):
         if not self.load_key: raise ValueError( 'Unknown location' )
-        return [ '\tLOAD R0, {}'.format( self.load_key ), '\tPUSH R0' ]
+        if self.is_array:
+            return ( [ '\tMOVE {}, R0'.format( self.load_key[ 1: ] ), '\tPUSH R0' ] if self.load_key[ 0 ] == '#'
+                else [ '\tMOVE {}, R0'.format( self.load_key.split( '-' )[ 1 ] ), '\tSUB R5, R0, R0', '\tPUSH R0' ] )
+        else:
+            return [ '\tLOAD R0, {}'.format( self.load_key ), '\tPUSH R0' ]
     def store_from_stack( self ):
         if not self.load_key: raise ValueError( 'Unknown location' )
         return [ '\tPOP R0', '\tSTORE R0, {}'.format( self.load_key ) ]
@@ -239,13 +263,13 @@ class Function:
     def __str__( self ):                return '{} :: {}; {}@{}'.format( self.name, self.type, self.label, self.location )
     def create_location( self, size ):  self.location = FRISC.get_next_function_location( size )
     def get_result( self ):             return VoidValue() if self.type.return_type == Void else TopOfStack()
-    def call( self, params = [] ):      # Pushing parameters in reverse order, then calling function, afterwards popping params
+    def call( self, params = [] ):      # Pushing parameters in definition order, then calling function, afterwards popping params
         code = [ ';=== Calling {} ===;'.format( self.name ) ]
-        for var in reversed( params ):
+        for var in params:
             code += var.place_on_stack()
-        code += [ '\tCALL ' + self.label, '\tADD SP, {}, SP'.format( len( params )*4 ) ]
-        if self.type.return_type != Void:
-            code += [ '\tPUSH R6' ]
+        code += [ '\tCALL ' + self.label, '\tADD SP, 0{:X}, SP'.format( len( params )*4 ) ]
+        #if self.type.return_type != Void:
+        code += [ '\tPUSH R6' ]
         code += [ ';=== Returned from {} ===;'.format( self.name ) ]
         return code
 
